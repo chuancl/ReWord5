@@ -8,7 +8,7 @@ const Tooltip: React.FC<{ text: string; children: React.ReactNode }> = ({ text, 
   return (
     <div className="group relative flex items-center">
       {children}
-      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs text-white bg-slate-800 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50 shadow-lg max-w-[200px] whitespace-normal text-center">
+      <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 text-xs text-white bg-slate-800 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none z-50 shadow-lg max-w-[250px] whitespace-normal text-center leading-relaxed">
         {text}
         <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-slate-800"></div>
       </div>
@@ -125,8 +125,8 @@ export const EnginesSection: React.FC<EnginesSectionProps> = ({ engines, setEngi
                        {engine.testResult === 'success' && <span className="flex items-center text-xs text-green-600"><CheckCircle className="w-3 h-3 mr-1"/> 正常</span>}
                        {engine.testResult === 'fail' && (
                          <Tooltip text={engine.testErrorMessage || "未知错误"}>
-                           <span className="flex items-center text-xs text-red-600 cursor-help bg-red-50 px-2 py-0.5 rounded border border-red-100">
-                             <AlertCircle className="w-3 h-3 mr-1"/> 测试失败 (点击查看)
+                           <span className="flex items-center text-xs text-red-600 cursor-help bg-red-50 px-2 py-0.5 rounded border border-red-100 font-bold">
+                             <AlertCircle className="w-3 h-3 mr-1"/> 测试失败 (点击查看原因)
                            </span>
                          </Tooltip>
                        )}
@@ -141,7 +141,7 @@ export const EnginesSection: React.FC<EnginesSectionProps> = ({ engines, setEngi
                        {engine.id === 'google' && (
                           <div className="col-span-2 text-[11px] text-emerald-600 bg-emerald-50/50 p-3 rounded-lg border border-emerald-100 flex items-start gap-2">
                               <div className="mt-0.5"><Zap className="w-3.5 h-3.5 text-emerald-400 fill-emerald-400" /></div>
-                              <p><b>Google 网页模拟模式：</b>无需 API Key。这是兼容性最强、请求最稳定的引擎。支持长文本且极少被封禁。</p>
+                              <p><b>Google 网页模拟模式：</b>无需 API Key。这是兼容性最强、请求最稳定的引擎。注：国内使用需配合 VPN。</p>
                           </div>
                        )}
 
@@ -149,7 +149,7 @@ export const EnginesSection: React.FC<EnginesSectionProps> = ({ engines, setEngi
                        {engine.id === 'baidu' && (
                           <div className="col-span-2 text-[11px] text-emerald-600 bg-emerald-50/50 p-3 rounded-lg border border-emerald-100 flex items-start gap-2">
                               <div className="mt-0.5"><Zap className="w-3.5 h-3.5 text-emerald-400 fill-emerald-400" /></div>
-                              <p><b>百度网页模拟模式：</b>无需 API Key。针对国内网络环境做了优化，模拟手机浏览器发起请求，适合作为 Google 的备选方案。</p>
+                              <p><b>百度网页模拟模式：</b>无需 API Key。针对国内网络环境做了优化，模拟手机浏览器发起请求。如果频繁报错 1022 请尝试重新测试或换用 Google。</p>
                           </div>
                        )}
 
