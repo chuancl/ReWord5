@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { TranslationEngine, EngineType, DictionaryEngine } from '../../types';
-import { Plus, GripVertical, RefreshCw, CheckCircle, WifiOff, Trash2, Globe, BrainCircuit, X, Book, ExternalLink, Zap } from 'lucide-react';
+import { Plus, GripVertical, RefreshCw, CheckCircle, WifiOff, Trash2, Globe, BrainCircuit, X, Book, ExternalLink, Zap, AlertCircle } from 'lucide-react';
 import { callTencentTranslation, callNiuTransTranslation, callDeepLTranslation } from '../../utils/api';
 import { dictionariesStorage } from '../../utils/storage';
 
@@ -61,17 +61,17 @@ export const EnginesSection: React.FC<EnginesSectionProps> = ({ engines, setEngi
 
     try {
       if (engine.id === 'tencent') {
-         await callTencentTranslation(engine, "Hello", 'zh');
+         await callTencentTranslation(engine, "Hello World", 'en');
       } else if (engine.id === 'niutrans') {
-         await callNiuTransTranslation(engine, "Hello", 'zh');
+         await callNiuTransTranslation(engine, "Hello World", 'en');
       } else if (engine.id === 'deepl') {
-         await callDeepLTranslation(engine, "Hello", 'zh');
+         await callDeepLTranslation(engine, "Hello World", 'en');
       } else {
          throw new Error("此引擎暂不支持连接测试");
       }
       setEngines(prev => prev.map(e => e.id === id ? { ...e, isTesting: false, testResult: 'success' } : e));
     } catch (err) {
-      console.error(err);
+      console.error("[EnginesSection] Test failed:", err);
       const errMsg = err instanceof Error ? err.message : '未知错误';
       setEngines(prev => prev.map(e => e.id === id ? { ...e, isTesting: false, testResult: 'fail', testErrorMessage: errMsg } : e));
     }
@@ -125,7 +125,13 @@ export const EnginesSection: React.FC<EnginesSectionProps> = ({ engines, setEngi
                     <div className="flex items-center space-x-2">
                        {engine.isTesting && <RefreshCw className="w-4 h-4 text-blue-500 animate-spin" />}
                        {engine.testResult === 'success' && <span className="flex items-center text-xs text-green-600"><CheckCircle className="w-3 h-3 mr-1"/> 正常</span>}
-                       {engine.testResult === 'fail' && <Tooltip text={engine.testErrorMessage || "未知错误"}><span className="flex items-center text-xs text-red-600 cursor-help"><WifiOff className="w-3 h-3 mr-1"/> 失败</span></Tooltip>}
+                       {engine.testResult === 'fail' && (
+                         <Tooltip text={engine.testErrorMessage || "未知错误"}>
+                           <span className="flex items-center text-xs text-red-600 cursor-help bg-red-50 px-2 py-0.5 rounded border border-red-100">
+                             <AlertCircle className="w-3 h-3 mr-1"/> 测试失败 (查看原因)
+                           </span>
+                         </Tooltip>
+                       )}
                        {engine.isEnabled && <button onClick={() => testConnection(engine.id)} className="text-xs text-blue-600 hover:underline">测试连接</button>}
                        <button type="button" onClick={(e) => { e.preventDefault(); e.stopPropagation(); handleDeleteEngine(engine.id); }} className="text-slate-400 hover:text-red-600 ml-2 p-1.5 rounded hover:bg-red-50 transition flex items-center z-10 relative" title="删除引擎" onMouseDown={(e) => e.stopPropagation()}><Trash2 className="w-4 h-4"/></button>
                     </div>
@@ -169,9 +175,15 @@ export const EnginesSection: React.FC<EnginesSectionProps> = ({ engines, setEngi
                                 </div>
                             )}
                             {engine.isWebSimulation && (
-                                <div className="text-[11px] text-slate-400 bg-blue-50/50 p-2 rounded border border-blue-100 flex items-start gap-2">
-                                    <div className="mt-0.5"><Zap className="w-3 h-3 text-blue-400" /></div>
-                                    <p>网页模拟模式：通过模拟浏览器请求直接调用 DeepL 服务，无需 API Key。适合在中国大陆无法申请官方 API 的用户。请注意高频率调用可能触发 IP 限制。</p>
+                                <div className="text-[11px] text-slate-500 bg-blue-50/50 p-3 rounded-lg border border-blue-100 flex flex-col gap-2">
+                                    <div className="flex items-start gap-2">
+                                        <div className="mt-0.5"><Zap className="w-3.5 h-3.5 text-blue-400" /></div>
+                                        <p>网页模拟模式：模拟浏览器直接调用 DeepL。适合无法申请官方 API 的用户。</p>
+                                    </div>
+                                    <div className="flex items-start gap-2 text-[10px] text-amber-600 bg-amber-50/50 p-2 rounded">
+                                        <AlertCircle className="w-3 h-3 mt-0.5 shrink-0" />
+                                        <p>注意：高频使用可能导致 IP 被 DeepL 临时封禁 (429 错误)。如果测试失败，请等待几分钟或切换网络环境。建议仅在低频场景下使用此模式。</p>
+                                    </div>
                                 </div>
                             )}
                          </div>
