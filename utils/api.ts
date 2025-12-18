@@ -3,7 +3,7 @@ import { getHash, getHmac, toHex } from './crypto';
 import { GoogleGenAI } from "@google/genai";
 
 /**
- * Gemini 3 翻译实现 (Pro 级效果)
+ * Gemini 3 翻译实现 (最高优先级推荐)
  */
 const callGeminiTranslation = async (text: string, target: string = 'en'): Promise<string> => {
     try {
@@ -11,17 +11,22 @@ const callGeminiTranslation = async (text: string, target: string = 'en'): Promi
         const response = await ai.models.generateContent({
             model: 'gemini-3-flash-preview',
             contents: `Translate the following text into ${target === 'zh' ? 'Chinese' : 'English'}. 
-            Keep technical terms accurate. Only return the translated text without any explanation or quotes.
-            Text: ${text}`,
+            Requirements:
+            1. Keep technical terms professional.
+            2. Maintain the tone of the original text.
+            3. Return ONLY the translation, no explanation, no quotes.
+            
+            Text to translate:
+            ${text}`,
             config: {
-                temperature: 0.3,
-                topP: 0.8,
+                temperature: 0.1,
+                topP: 0.95,
             }
         });
         return response.text?.trim() || "";
     } catch (e: any) {
-        console.error("[Gemini Translation Error]", e);
-        throw new Error("Gemini AI 翻译失败，请检查 API 配置或网络。");
+        console.error("[Gemini API Error]", e);
+        throw new Error("Gemini AI 调用失败，请检查 API 状态。");
     }
 };
 
@@ -43,14 +48,16 @@ const callGoogleWebSimulation = async (text: string, target: string = 'en'): Pro
 
         if (!response.ok) throw new Error(`Google 响应异常: ${response.status}`);
         const resJson = await response.json();
+        // Google 响应格式：[[["译文", "原文", ...], ...], ...]
         return resJson[0].map((item: any) => item[0]).join("");
     } catch (e: any) {
-        throw new Error("Google 翻译连接异常。");
+        console.error("[Google Simulation Error]", e);
+        throw new Error("Google 翻译连接超时。");
     }
 };
 
 /**
- * 模拟 微软翻译网页版
+ * 模拟 微软翻译网页版 (Bing)
  */
 const callMicrosoftWebSimulation = async (text: string, target: string = 'en'): Promise<string> => {
     const to = target === 'zh' ? 'zh-Hans' : 'en';
@@ -77,74 +84,91 @@ const callMicrosoftWebSimulation = async (text: string, target: string = 'en'): 
         const resJson = await response.json();
         return resJson[0]?.translations[0]?.text || "";
     } catch (e: any) {
+        console.error("[Microsoft Simulation Error]", e);
         throw e;
     }
 };
 
 /**
- * 模拟 百度翻译网页版
+ * 腾讯翻译君 (Tencent Cloud API V3 实现)
  */
-const callBaiduWebSimulation = async (text: string, target: string = 'en'): Promise<string> => {
-    const to = target === 'zh' ? 'zh' : 'en';
-    const url = `https://fanyi.baidu.com/transapi`;
-    const params = new URLSearchParams();
-    params.append('from', 'auto');
-    params.append('to', to);
-    params.append('query', text);
-    params.append('source', 'txt');
+export const callTencentTranslation = async (engine: TranslationEngine, sourceText: string, target: string = 'en'): Promise<any> => {
+  if (!engine.appId || !engine.secretKey) throw new Error("缺少腾讯翻译 SecretId 或 SecretKey");
 
-    const response = await fetch(url, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/x-www-form-urlencoded",
-            "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.3 Mobile/15E148 Safari/604.1",
-            "Referer": "https://fanyi.baidu.com/",
-            "Origin": "https://fanyi.baidu.com"
-        },
-        body: params.toString()
-    });
+  const SECRET_ID = engine.appId;
+  const SECRET_KEY = engine.secretKey;
+  const ENDPOINT = engine.endpoint || "tmt.tencentcloudapi.com";
+  const REGION = engine.region || "ap-shanghai";
+  const SERVICE = "tmt";
+  const ACTION = "TextTranslate";
+  const VERSION = "2018-03-21";
 
-    if (!response.ok) throw new Error(`百度响应异常: ${response.status}`);
-    const resJson = await response.json();
-    if (resJson.error) throw new Error(`百度翻译错误: ${resJson.error}`);
-    return resJson.data.map((item: any) => item.dst).join("\n");
-};
+  const now = Math.floor(Date.now() / 1000);
+  const date = new Date(now * 1000).toISOString().split('T')[0];
 
-/**
- * 模拟 DeepL 网页版
- */
-const callDeepLWebSimulation = async (text: string, target: string = 'en'): Promise<string> => {
-    const targetLang = target.toUpperCase() === 'ZH' ? 'ZH' : 'EN';
-    const id = Math.floor(Math.random() * 100000000);
-    const iCount = (text.split('i').length - 1) + (text.split('I').length - 1);
-    const getTimeStamp = () => {
-        const ts = Date.now();
-        if (iCount === 0) return ts;
-        return ts - (ts % (iCount + 1)) + (iCount + 1);
-    };
+  const payload = JSON.stringify({
+    SourceText: sourceText,
+    Source: "auto",
+    Target: target === 'zh' ? 'zh' : 'en', 
+    ProjectId: Number(engine.projectId) || 0
+  });
 
-    const payload = {
-        jsonrpc: "2.0",
-        method: "LMT_handle_jobs",
-        params: {
-            jobs: [{ kind: "default", sentences: [{ text, id: 0, prefix: "" }], raw_en_context_before: [], raw_en_context_after: [] }],
-            lang: { target_lang: targetLang, source_lang_user_selected: "auto" },
-            priority: 1,
-            commonJobParams: { browserType: 1, formality: null },
-            timestamp: getTimeStamp()
-        },
-        id
-    };
+  const httpRequestMethod = "POST";
+  const canonicalUri = "/";
+  const canonicalQueryString = "";
+  const canonicalHeaders = `content-type:application/json; charset=utf-8\nhost:${ENDPOINT}\n`;
+  const signedHeaders = "content-type;host";
+  const hashedRequestPayload = await getHash(payload);
+  
+  const canonicalRequest = 
+    httpRequestMethod + "\n" +
+    canonicalUri + "\n" +
+    canonicalQueryString + "\n" +
+    canonicalHeaders + "\n" +
+    signedHeaders + "\n" +
+    hashedRequestPayload;
 
-    const response = await fetch("https://www2.deepl.com/jsonrpc?method=LMT_handle_jobs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Accept": "*/*" },
-        body: JSON.stringify(payload)
-    });
+  const algorithm = "TC3-HMAC-SHA256";
+  const credentialScope = `${date}/${SERVICE}/tc3_request`;
+  const hashedCanonicalRequest = await getHash(canonicalRequest);
+  
+  const stringToSign = 
+    algorithm + "\n" +
+    now + "\n" +
+    credentialScope + "\n" +
+    hashedCanonicalRequest;
 
-    if (!response.ok) throw new Error(`DeepL 响应异常: ${response.status}`);
-    const resJson = await response.json();
-    return resJson.result?.translations?.[0]?.beams?.[0]?.sentences?.[0]?.text || "";
+  const kSecret = new TextEncoder().encode("TC3" + SECRET_KEY);
+  const kDate = await getHmac(kSecret, date);
+  const kService = await getHmac(kDate, SERVICE);
+  const kSigning = await getHmac(kService, "tc3_request");
+  const signature = toHex(await getHmac(kSigning, stringToSign));
+
+  const authorization = 
+    `${algorithm} ` +
+    `Credential=${SECRET_ID}/${credentialScope}, ` +
+    `SignedHeaders=${signedHeaders}, ` +
+    `Signature=${signature}`;
+
+  const response = await fetch(`https://${ENDPOINT}`, {
+    method: "POST",
+    headers: {
+      "Authorization": authorization,
+      "Content-Type": "application/json; charset=utf-8",
+      "Host": ENDPOINT,
+      "X-TC-Action": ACTION,
+      "X-TC-Version": VERSION,
+      "X-TC-Timestamp": now.toString(),
+      "X-TC-Region": REGION
+    },
+    body: payload
+  });
+
+  const resJson = await response.json();
+  if (resJson.Response && resJson.Response.Error) {
+    throw new Error(resJson.Response.Error.Message);
+  }
+  return resJson;
 };
 
 /**
@@ -157,17 +181,23 @@ export const translateWithEngine = async (engine: TranslationEngine, text: strin
             case 'gemini': return await callGeminiTranslation(text, target);
             case 'google': return await callGoogleWebSimulation(text, target);
             case 'microsoft': return await callMicrosoftWebSimulation(text, target);
-            case 'baidu': return await callBaiduWebSimulation(text, target);
-            case 'deepl': return await callDeepLWebSimulation(text, target);
-            default: return text; // 兜底返回原文本
+            case 'baidu': {
+                // 简单的百度模拟作为备选
+                const to = target === 'zh' ? 'zh' : 'en';
+                const url = `https://fanyi.baidu.com/transapi`;
+                const params = new URLSearchParams({ from: 'auto', to, query: text, source: 'txt' });
+                const res = await fetch(url, { method: "POST", body: params });
+                const json = await res.json();
+                return json.data?.[0]?.dst || text;
+            }
+            case 'tencent': {
+                const res = await callTencentTranslation(engine, text, target);
+                return res.Response?.TargetText || "";
+            }
+            default: return text;
         }
     } catch (e: any) {
+        console.error(`[Translation Engine Error: ${engine.id}]`, e);
         throw e;
     }
-};
-
-export const callTencentTranslation = async (engine: TranslationEngine, sourceText: string = 'Hello', target: string = 'en'): Promise<any> => {
-  if (!engine.appId || !engine.secretKey) throw new Error("缺少腾讯翻译密钥");
-  // ... 保持原有逻辑不变，但 translateWithEngine 现在优先处理内置 ID
-  return { Response: { TargetText: sourceText } };
 };
