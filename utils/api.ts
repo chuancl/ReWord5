@@ -7,6 +7,7 @@ import { GoogleGenAI } from "@google/genai";
  */
 const callGeminiTranslation = async (text: string, target: string = 'en'): Promise<string> => {
     try {
+        // 使用 process.env.API_KEY 初始化，这由运行环境自动注入
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         const response = await ai.models.generateContent({
             model: 'gemini-3-flash-preview',
@@ -23,10 +24,12 @@ const callGeminiTranslation = async (text: string, target: string = 'en'): Promi
                 topP: 0.95,
             }
         });
+        
+        // 直接访问 .text 属性获取结果
         return response.text?.trim() || "";
     } catch (e: any) {
         console.error("[Gemini API Error]", e);
-        throw new Error("Gemini AI 调用失败，请检查 API 状态。");
+        throw new Error("Gemini AI 调用失败，请检查网络或环境变量配置。");
     }
 };
 
@@ -48,7 +51,6 @@ const callGoogleWebSimulation = async (text: string, target: string = 'en'): Pro
 
         if (!response.ok) throw new Error(`Google 响应异常: ${response.status}`);
         const resJson = await response.json();
-        // Google 响应格式：[[["译文", "原文", ...], ...], ...]
         return resJson[0].map((item: any) => item[0]).join("");
     } catch (e: any) {
         console.error("[Google Simulation Error]", e);
@@ -182,7 +184,6 @@ export const translateWithEngine = async (engine: TranslationEngine, text: strin
             case 'google': return await callGoogleWebSimulation(text, target);
             case 'microsoft': return await callMicrosoftWebSimulation(text, target);
             case 'baidu': {
-                // 简单的百度模拟作为备选
                 const to = target === 'zh' ? 'zh' : 'en';
                 const url = `https://fanyi.baidu.com/transapi`;
                 const params = new URLSearchParams({ from: 'auto', to, query: text, source: 'txt' });
