@@ -1,6 +1,5 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { WordCategory, WordEntry, MergeStrategyConfig, WordTab, Scenario } from '../types';
+import { WordCategory, WordEntry, MergeStrategyConfig, WordTab, Scenario, AppView } from '../types';
 import { DEFAULT_MERGE_STRATEGY } from '../constants';
 import { Upload, Download, Filter, Settings2, List, Search, Plus, Trash2, CheckSquare, Square, ArrowRight, BookOpen, GraduationCap, CheckCircle, RotateCcw, FileDown } from 'lucide-react';
 import { MergeConfigModal } from './word-manager/MergeConfigModal';
@@ -58,7 +57,7 @@ const IMPORT_TEMPLATE = [
     "sourceUrl": "https://en.wikipedia.org/wiki/Serendipity"
   },
   {
-    "_说明": "本行仅为字段说明，导入时将被忽略。请确保 JSON 格式正确。",
+    "_说明": "本行仅为字段说明，导入时将被忽略。请确保 JSON格式正确。",
     "text": "【必填】单词拼写",
     "translation": "【建议填写】中文释义",
     "phoneticUs": "选填。美式音标",
@@ -89,6 +88,7 @@ interface WordManagerProps {
   ttsSpeed?: number;
   initialTab?: WordTab;
   initialSearchQuery?: string;
+  onOpenDetail?: (word: string) => void; // 增加跳转回调
 }
 
 export const WordManager: React.FC<WordManagerProps> = ({ 
@@ -97,7 +97,8 @@ export const WordManager: React.FC<WordManagerProps> = ({
     setEntries, 
     ttsSpeed = 1.0,
     initialTab,
-    initialSearchQuery
+    initialSearchQuery,
+    onOpenDetail
 }) => {
   const [activeTab, setActiveTab] = useState<WordTab>('all');
   const [selectedScenarioId, setSelectedScenarioId] = useState<string>('all');
@@ -725,6 +726,7 @@ export const WordManager: React.FC<WordManagerProps> = ({
            isAllWordsTab={isAllWordsTab}
            searchQuery={searchQuery}
            ttsSpeed={ttsSpeed}
+           onOpenDetail={onOpenDetail} // 传递回调
         />
       </div>
     </div>

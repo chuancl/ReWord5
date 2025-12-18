@@ -1,9 +1,9 @@
-
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { PageWidgetConfig, WordEntry, WordCategory, WordTab } from '../types';
 import { entriesStorage } from '../utils/storage';
 import { FloatingBall } from './page-widget/FloatingBall';
 import { WidgetWindow } from './page-widget/WidgetWindow';
+import { browser } from 'wxt/browser';
 
 interface PageWidgetProps {
   config: PageWidgetConfig;
@@ -151,6 +151,12 @@ export const PageWidget: React.FC<PageWidgetProps> = ({ config, setConfig, pageW
     selectedWordIds.forEach(id => newDismissed.add(id));
     setDismissedWordIds(newDismissed);
     setSelectedWordIds(new Set());
+  };
+
+  const handleOpenDetail = (word: string) => {
+      // 网页端弹窗点击单词，跳转到 Options 详情页
+      const path = `/options.html?view=word-detail&word=${encodeURIComponent(word)}`;
+      browser.runtime.sendMessage({ action: 'OPEN_OPTIONS_PAGE', path });
   };
 
   // --- Drag & Resize Logic ---
@@ -310,6 +316,7 @@ export const PageWidget: React.FC<PageWidgetProps> = ({ config, setConfig, pageW
             handleConfigDragOver={handleConfigDragOver}
             handleConfigDragEnd={handleConfigDragEnd}
             draggedConfigIndex={draggedConfigIndex}
+            onOpenDetail={handleOpenDetail} // 绑定跳转逻辑
          />
       )}
     </div>

@@ -1,17 +1,14 @@
-
-
-
-
 import React, { useState } from 'react';
 import { PageWidgetConfig, WordCategory } from '../../types';
-import { GripVertical, PlayCircle, BarChart2, Star } from 'lucide-react';
+import { GripVertical, PlayCircle, BarChart2, Star, BookOpen } from 'lucide-react';
 
 export interface PageWidgetSectionProps {
   widget: PageWidgetConfig;
   setWidget: React.Dispatch<React.SetStateAction<PageWidgetConfig>>;
+  onOpenDetail?: (word: string) => void; // 增加跳转回调
 }
 
-export const PageWidgetSection: React.FC<PageWidgetSectionProps> = ({ widget, setWidget }) => {
+export const PageWidgetSection: React.FC<PageWidgetSectionProps> = ({ widget, setWidget, onOpenDetail }) => {
    const [draggedItemIndex, setDraggedItemIndex] = useState<number | null>(null);
 
    const handleDragStart = (index: number) => setDraggedItemIndex(index);
@@ -146,7 +143,14 @@ export const PageWidgetSection: React.FC<PageWidgetSectionProps> = ({ widget, se
                          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
                             <div className="flex flex-col gap-2">
                                 <div className="flex items-baseline gap-3">
-                                    <h3 className="text-2xl font-bold text-slate-900 tracking-tight">ephemeral</h3>
+                                    {/* 预览中的单词标题：增加跳转视觉提示 */}
+                                    <h3 
+                                      className="text-2xl font-bold text-slate-900 tracking-tight cursor-pointer hover:text-blue-600 hover:underline decoration-blue-200 transition-all flex items-center group/p-title"
+                                      onClick={() => onOpenDetail?.('ephemeral')}
+                                    >
+                                      ephemeral
+                                      <BookOpen className="w-4 h-4 ml-2 opacity-0 group-hover/p-title:opacity-40 transition-opacity" />
+                                    </h3>
                                     
                                     {widget.showPartOfSpeech && (
                                         <span className="font-serif font-bold text-sm text-slate-400 bg-slate-50 rounded px-1.5 py-0.5 border border-slate-100">adj.</span>

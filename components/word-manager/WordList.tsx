@@ -1,9 +1,7 @@
-
-
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { WordEntry, WordCategory, MergeStrategyConfig } from '../../types';
-import { PlayCircle, MapPin, ExternalLink, Filter, BarChart2, Star, Youtube, Image as ImageIcon } from 'lucide-react';
+import { PlayCircle, MapPin, ExternalLink, Filter, BarChart2, Star, Youtube, Image as ImageIcon, BookOpen } from 'lucide-react';
 import { playWordAudio, playSentenceAudio } from '../../utils/audio';
 
 interface WordListProps {
@@ -16,6 +14,7 @@ interface WordListProps {
     isAllWordsTab: boolean;
     searchQuery: string;
     ttsSpeed?: number;
+    onOpenDetail?: (word: string) => void; // 新增跳转回调
 }
 
 const InfoTag: React.FC<{ text: string, trans: string }> = ({ text, trans }) => (
@@ -26,7 +25,7 @@ const InfoTag: React.FC<{ text: string, trans: string }> = ({ text, trans }) => 
 
 export const WordList: React.FC<WordListProps> = ({ 
     groupedEntries, selectedWords, toggleSelectGroup, isGroupSelected,
-    showConfig, mergeConfig, searchQuery, ttsSpeed = 1.0 
+    showConfig, mergeConfig, searchQuery, ttsSpeed = 1.0, onOpenDetail
 }) => {
     
     // Image Preview State
@@ -58,7 +57,15 @@ export const WordList: React.FC<WordListProps> = ({
                     {/* Header Row */}
                     <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                       <div className="flex items-center gap-3 flex-wrap">
-                          <h3 className="text-2xl font-bold text-slate-900 tracking-tight">{primary.text}</h3>
+                          {/* 单词标题：增加点击跳转详情的功能 */}
+                          <h3 
+                            className="text-2xl font-bold text-slate-900 tracking-tight cursor-pointer hover:text-blue-600 hover:underline decoration-blue-200 underline-offset-4 transition-all flex items-center group/title"
+                            onClick={() => onOpenDetail?.(primary.text)}
+                            title="点击查看单词详细释义、词源、例句等"
+                          >
+                            {primary.text}
+                            <BookOpen className="w-4 h-4 ml-2 opacity-0 group-hover/title:opacity-40 transition-opacity" />
+                          </h3>
                           
                           {mergeConfig.showPartOfSpeech && primary.partOfSpeech && (
                               <span className="font-serif font-bold text-sm text-slate-400 bg-slate-50 rounded px-1.5 py-0.5 border border-slate-100">{primary.partOfSpeech}</span>
@@ -185,7 +192,7 @@ export const WordList: React.FC<WordListProps> = ({
                                {item.id === 'roots' && primary.roots && primary.roots.length > 0 && (
                                    <div key={`${primary.id}-roots`} className="bg-slate-50 p-3.5 rounded-lg border border-slate-100 relative">
                                        <div className="absolute left-0 top-3 w-1 h-8 bg-rose-500 rounded-r"></div>
-                                       <span className="text-[10px] font-bold text-slate-400 uppercase block mb-1.5 pl-2">词根词缀 (Roots)</span>
+                                       <span className="text-[10px] font-bold text-slate-400 uppercase block mb-1.5 pl-2">词根词源 (Roots)</span>
                                        <div className="space-y-2 pl-2">
                                            {primary.roots.map((r, i) => (
                                                <div key={i} className="flex items-baseline gap-2 text-xs">

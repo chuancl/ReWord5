@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Sidebar } from './components/Sidebar';
 import { Dashboard } from './components/Dashboard';
@@ -148,6 +147,13 @@ const App: React.FC = () => {
     }, 100);
   };
 
+  // 跳转到详情页的处理函数
+  const handleOpenWordDetail = (word: string) => {
+      setDetailWord(word);
+      setCurrentView('word-detail');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   if (isLoading && entries.length === 0) {
     return <div className="h-screen w-full flex items-center justify-center bg-slate-50"><Loader2 className="w-8 h-8 text-blue-600 animate-spin"/></div>;
   }
@@ -160,6 +166,7 @@ const App: React.FC = () => {
              onBack={() => {
                  // If opened via URL (new tab), closing might be better or going to dashboard
                  if (window.history.length > 1) {
+                     // 尝试返回上一个视图，如果是直接打开详情，则返回 dashboard
                      setCurrentView('dashboard');
                  } else {
                      // If it's a standalone tab opened by bubble, allow "Back" to go to dashboard too
@@ -197,6 +204,7 @@ const App: React.FC = () => {
                   ttsSpeed={autoTranslate.ttsSpeed || 1.0}
                   initialTab={initialManagerTab}
                   initialSearchQuery={initialManagerSearch}
+                  onOpenDetail={handleOpenWordDetail} // 绑定回调
                />
              </div>
           )}
@@ -225,7 +233,7 @@ const App: React.FC = () => {
                 </section>
 
                 <section id="page-widget" className="scroll-mt-8">
-                   <PageWidgetSection widget={pageWidgetConfig} setWidget={setPageWidgetConfig} />
+                   <PageWidgetSection widget={pageWidgetConfig} setWidget={setPageWidgetConfig} onOpenDetail={handleOpenWordDetail} />
                 </section>
 
                 <section id="engines" className="scroll-mt-8">

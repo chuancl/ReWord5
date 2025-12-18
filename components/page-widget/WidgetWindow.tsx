@@ -1,7 +1,3 @@
-
-
-
-
 import React from 'react';
 import { PageWidgetConfig, WordTab, WordCategory, WordEntry } from '../../types';
 import { X, Settings2, CheckSquare, Square, BookOpen, GripVertical, Download, ExternalLink, PlayCircle, Filter, Star, BarChart2 } from 'lucide-react';
@@ -29,6 +25,7 @@ interface WidgetWindowProps {
     handleConfigDragOver: (e: React.DragEvent, idx: number) => void;
     handleConfigDragEnd: () => void;
     draggedConfigIndex: number | null;
+    onOpenDetail?: (word: string) => void; // 新增跳转回调
 }
 
 export const WidgetWindow: React.FC<WidgetWindowProps> = ({
@@ -36,7 +33,8 @@ export const WidgetWindow: React.FC<WidgetWindowProps> = ({
     selectedWordIds, toggleSelectAll, toggleSelectWord, handleBatchSetToLearning, handleBatchDismiss,
     onClose, onMouseDownHeader, onMouseDownResize,
     isConfigOpen, setIsConfigOpen, updateSetting,
-    handleConfigDragStart, handleConfigDragOver, handleConfigDragEnd, draggedConfigIndex
+    handleConfigDragStart, handleConfigDragOver, handleConfigDragEnd, draggedConfigIndex,
+    onOpenDetail
 }) => {
     
     const getTabLabel = (tab: WordTab) => {
@@ -274,7 +272,14 @@ export const WidgetWindow: React.FC<WidgetWindowProps> = ({
                                 <div className="flex justify-between items-start mb-3">
                                     <div className="flex flex-col gap-1.5 w-full">
                                         <div className="flex items-center gap-3 flex-wrap">
-                                            <h3 className="font-bold text-xl text-slate-800 m-0">{word.text}</h3>
+                                            {/* 单词标题：增加点击跳转详情的功能 */}
+                                            <h3 
+                                                className="font-bold text-xl text-slate-800 m-0 cursor-pointer hover:text-blue-600 hover:underline decoration-blue-200 transition-all"
+                                                onClick={() => onOpenDetail?.(word.text)}
+                                                title="点击查看详细信息"
+                                            >
+                                                {word.text}
+                                            </h3>
                                             
                                             {config.showPartOfSpeech && word.partOfSpeech && (
                                                 <span className="font-serif font-bold text-xs text-slate-400 bg-slate-50 rounded px-1.5 py-0.5 border border-slate-100">{word.partOfSpeech}</span>
@@ -357,7 +362,7 @@ export const WidgetWindow: React.FC<WidgetWindowProps> = ({
                                         if(item.id === 'context' && word.contextSentence) return (
                                             <div key="ctx" className="bg-slate-50 p-3 rounded-lg border border-slate-100 relative group/line">
                                                 <div className="absolute left-0 top-3 bottom-3 w-1 bg-blue-500 rounded-r"></div>
-                                                <span className="text-[10px] font-bold text-slate-400 uppercase block mb-1 pl-3 select-none">来源原句 (Context)</span>
+                                                <span className="text-[10px] font-bold text-slate-400 uppercase block mb-1.5 pl-3 select-none">来源原句 (Context)</span>
                                                 <p className="text-sm text-slate-700 leading-relaxed pl-3 font-medium">{word.contextSentence}</p>
                                                 {config.showContextTranslation && word.contextSentenceTranslation && (
                                                     <p className="text-xs text-slate-500 pl-3 mt-1">{word.contextSentenceTranslation}</p>
@@ -372,7 +377,7 @@ export const WidgetWindow: React.FC<WidgetWindowProps> = ({
                                         if(item.id === 'mixed' && word.mixedSentence) return (
                                              <div key="mix" className="bg-slate-50 p-3 rounded-lg border border-slate-100 relative">
                                                 <div className="absolute left-0 top-3 bottom-3 w-1 bg-purple-500 rounded-r"></div>
-                                                <span className="text-[10px] font-bold text-slate-400 uppercase block mb-1 pl-3 select-none">中英混合 (Mixed)</span>
+                                                <span className="text-[10px] font-bold text-slate-400 uppercase block mb-1.5 pl-3 select-none">中英混合 (Mixed)</span>
                                                 <p className="text-sm text-slate-700 leading-relaxed pl-3">{word.mixedSentence}</p>
                                             </div>
                                         )
@@ -381,7 +386,7 @@ export const WidgetWindow: React.FC<WidgetWindowProps> = ({
                                         if(item.id === 'dictExample' && word.dictionaryExample) return (
                                             <div key="dict" className="bg-slate-50 p-3 rounded-lg border border-slate-100 relative">
                                                 <div className="absolute left-0 top-3 bottom-3 w-1 bg-emerald-500 rounded-r"></div>
-                                                <span className="text-[10px] font-bold text-slate-400 uppercase block mb-1 pl-3 select-none">词典例句 (Dictionary)</span>
+                                                <span className="text-[10px] font-bold text-slate-400 uppercase block mb-1.5 pl-3 select-none">词典例句 (Dictionary)</span>
                                                 <p className="text-sm text-slate-600 italic leading-relaxed pl-3">{word.dictionaryExample}</p>
                                                 {config.showExampleTranslation && word.dictionaryExampleTranslation && (
                                                     <p className="text-xs text-slate-500 pl-3 mt-1">{word.dictionaryExampleTranslation}</p>
