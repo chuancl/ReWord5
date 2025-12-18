@@ -1,7 +1,6 @@
 import { defineBackground } from 'wxt/sandbox';
 import { browser } from 'wxt/browser';
-// 修复: 仅导入 background 中实际使用的 translateWithEngine
-import { translateWithEngine } from '../utils/api';
+import { callTencentTranslation, callNiuTransTranslation, callDeepLTranslation, translateWithEngine } from '../utils/api';
 import { dictionariesStorage } from '../utils/storage';
 import { RichDictionaryResult, DictionaryMeaningCard, PhraseItem, SynonymItem } from '../types';
 
@@ -242,7 +241,7 @@ export default defineBackground(() => {
     if (message.action === 'TRANSLATE_TEXT') {
       (async () => {
         try {
-          // 修复: 使用统一的翻译分发器，它已经包含了所有引擎的逻辑
+          // 使用统一的翻译分发器，它已经包含了 google/baidu/deepl 的网页模拟逻辑
           const text = await translateWithEngine(message.engine, message.text, message.target);
           sendResponse({ success: true, data: { Response: { TargetText: text } } });
         } catch (error: any) {
