@@ -5,7 +5,7 @@ export default defineConfig({
   manifest: {
     name: 'Re-Word (易语道) - 沉浸式英语',
     description: 'Re-Word (Read Word)：在浏览中文网页时，自动将指定词汇替换为英文，重塑您的词汇记忆，体验沉浸式学习之“道”。',
-    version: '3.3.0',
+    version: '3.3.1',
     permissions: ['storage', 'activeTab', 'scripting', 'contextMenus', 'unlimitedStorage'],
     host_permissions: [
       "https://*.tencentcloudapi.com/*",
@@ -13,7 +13,10 @@ export default defineConfig({
       "https://api-free.deepl.com/*",
       "https://api.deepl.com/*",
       "https://www2.deepl.com/*",
-      "https://dict.youdao.com/*"
+      "https://dict.youdao.com/*",
+      "https://www.bing.com/*",
+      "https://fanyi.baidu.com/*",
+      "https://generativelanguage.googleapis.com/*"
     ],
     action: {
       default_title: '打开 Re-Word 设置'
