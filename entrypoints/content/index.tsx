@@ -233,14 +233,10 @@ export default defineContentScript({
     let currentEngines = await enginesStorage.getValue();
     let currentInteractionConfig = await interactionConfigStorage.getValue();
 
-    // 监听配置更新，确保逻辑实时同步
     autoTranslateConfigStorage.watch(v => { if(v) currentAutoTranslate = v; });
     entriesStorage.watch(v => { if(v) currentEntries = v; });
     enginesStorage.watch(v => { if(v) currentEngines = v; });
 
-    /**
-     * 应用替换逻辑
-     */
     const applySentenceScopedReplacements = async (block: HTMLElement, sourceSentences: string[], transSentences: string[]) => {
         const textNodes: Text[] = [];
         const walker = document.createTreeWalker(block, NodeFilter.SHOW_TEXT);
@@ -268,7 +264,6 @@ export default defineContentScript({
             const sentEnd = sentStart + sent.length;
             searchCursor = sentEnd;
 
-            // 1. 正常匹配 (含词态)
             const matches = findFuzzyMatches(sent, currentEntries, trans);
             matches.forEach(m => {
                 let localPos = sent.indexOf(m.text);
@@ -278,7 +273,6 @@ export default defineContentScript({
                 }
             });
 
-            // 2. 激进匹配
             if (currentAutoTranslate.aggressiveMode) {
                 const normTrans = normalizeEnglishText(trans);
                 const potentials = currentEntries.filter(e => normTrans.includes(e.text.toLowerCase()));
@@ -306,10 +300,9 @@ export default defineContentScript({
                 if (target) {
                     const { node, start } = target;
                     const val = node.nodeValue || "";
-                    const mid = val.substring(r.start - start, r.end - start);
                     const span = document.createElement('span');
                     span.className = 'context-lingo-word';
-                    span.innerHTML = buildReplacementHtml(mid, r.matchedWord, r.entry.category, currentStyles, currentOriginalTextConfig, r.entry.id);
+                    span.innerHTML = buildReplacementHtml(val.substring(r.start - start, r.end - start), r.matchedWord, r.entry.category, currentStyles, currentOriginalTextConfig, r.entry.id);
                     node.parentNode?.insertBefore(document.createTextNode(val.substring(r.end - start)), node.nextSibling);
                     node.parentNode?.insertBefore(span, node.nextSibling);
                     node.nodeValue = val.substring(0, r.start - start);
@@ -322,43 +315,64 @@ export default defineContentScript({
     class TranslationScheduler {
         private buffer: { block: HTMLElement, text: string }[] = [];
         private isProcessing = false;
+        private timer: any = null;
+
         add(block: HTMLElement) {
             const text = block.innerText?.trim();
-            // 长度限制和中文字符检测
             if (!text || text.length < 5 || !/[\u4e00-\u9fa5]/.test(text)) return;
-            
-            // 排除含有大量标点的干扰项（如导航条）
             if ((text.match(/[\/|\\·•]/g) || []).length > 3 && text.length < 20) return;
 
             block.setAttribute('data-context-lingo-scanned', 'pending');
             this.buffer.push({ block, text });
-            this.flush();
+            
+            // 只要有新内容，就在 300ms 后尝试处理，不再死等攒满 10 条
+            if (this.timer) clearTimeout(this.timer);
+            this.timer = setTimeout(() => this.flush(), 300);
+            
+            if (this.buffer.length >= 5) this.flush(); // 达到 5 条立即处理
         }
+
         private async flush() {
             if (this.isProcessing || this.buffer.length === 0) return;
             this.isProcessing = true;
-            const batch = this.buffer.splice(0, 10);
+            const batch = this.buffer.splice(0, 5);
             const engine = currentEngines.find(e => e.isEnabled);
-            if (!engine) { this.isProcessing = false; return; }
             
             for (const item of batch) {
                 try {
                     const sentences = splitTextIntoSentences(item.text);
-                    const response = await browser.runtime.sendMessage({ action: 'TRANSLATE_TEXT', engine, text: sentences.join(' ||| '), target: 'en' });
-                    if (response.success) {
-                        const transSentences = response.data.Response.TargetText.split(/\s*\|\|\|\s*/);
+                    if (!engine) continue;
+                    
+                    const response = await browser.runtime.sendMessage({ 
+                        action: 'TRANSLATE_TEXT', 
+                        engine, 
+                        text: sentences.join(' ||| '), 
+                        target: 'en' 
+                    });
+
+                    if (response?.success && response.data?.Response?.TargetText) {
+                        const targetText = response.data.Response.TargetText;
+                        const transSentences = targetText.split(/\s*\|\|\|\s*/);
+                        
                         item.block.setAttribute('data-lingo-source', item.text);
-                        item.block.setAttribute('data-lingo-translation', transSentences.join(' '));
+                        item.block.setAttribute('data-lingo-translation', targetText.replace(/\|\|\|/g, ' '));
+                        
                         if (currentAutoTranslate.bilingualMode) {
                             const div = document.createElement('div');
                             div.className = 'context-lingo-bilingual-block';
-                            div.innerText = transSentences.join(' ');
+                            div.innerText = targetText.replace(/\|\|\|/g, ' ');
                             item.block.after(div);
                         }
+                        
                         await applySentenceScopedReplacements(item.block, sentences, transSentences);
                         item.block.setAttribute('data-context-lingo-scanned', 'true');
+                    } else {
+                        // 失败回退状态
+                        item.block.removeAttribute('data-context-lingo-scanned');
                     }
-                } catch (e) { console.error("Translation Error", e); }
+                } catch (e) { 
+                    console.error("Translation Flush Error", e); 
+                }
             }
             this.isProcessing = false;
             if (this.buffer.length > 0) this.flush();
@@ -367,7 +381,6 @@ export default defineContentScript({
 
     const scheduler = new TranslationScheduler();
     const scan = () => {
-        // 定义主体内容的优先容器
         const mainSelectors = ['main', 'article', '#main', '.main', '#content', '.content', '.article', '.post-content'];
         const mainContainer = !currentAutoTranslate.translateWholePage 
             ? document.querySelector(mainSelectors.join(',')) || document.body 
@@ -376,23 +389,14 @@ export default defineContentScript({
         const walker = document.createTreeWalker(mainContainer, NodeFilter.SHOW_ELEMENT, {
             acceptNode: (n: any) => {
                 const tagName = n.tagName.toUpperCase();
-                // 1. 基础剔除标签
                 if (['SCRIPT','STYLE','NOSCRIPT','IFRAME','CANVAS','VIDEO','AUDIO','BUTTON','INPUT','TEXTAREA','SELECT'].includes(tagName)) return NodeFilter.FILTER_REJECT;
-                
-                // 2. 内部 UI 剔除
                 if (n.hasAttribute('data-context-lingo-scanned') || n.closest('[data-context-lingo-container]')) return NodeFilter.FILTER_REJECT;
-                
-                // 3. 结构性过滤：非全页扫描时剔除干扰容器
                 if (!currentAutoTranslate.translateWholePage) {
                     if (['NAV', 'HEADER', 'FOOTER', 'ASIDE'].includes(tagName)) return NodeFilter.FILTER_REJECT;
-                    // 额外检测 class 和 id 中包含导航词汇的容器
                     const identity = (n.id + n.className).toLowerCase();
                     if (['nav', 'menu', 'sidebar', 'header', 'footer', 'toolbar', 'breadcrumb'].some(word => identity.includes(word))) return NodeFilter.FILTER_REJECT;
-                    // 排除被以上标签包裹的子孙元素
                     if (n.closest('nav, header, footer, aside')) return NodeFilter.FILTER_REJECT;
                 }
-
-                // 4. 接受文本容器标签
                 const textContainers = ['P','DIV','LI','ARTICLE','SECTION','BLOCKQUOTE','H1','H2','H3','H4','H5','H6'];
                 return textContainers.includes(tagName) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
             }
@@ -402,8 +406,11 @@ export default defineContentScript({
 
     const hostname = window.location.hostname;
     if (currentAutoTranslate.blacklist.some(d => hostname.includes(d))) return;
+    
     if (currentAutoTranslate.enabled) {
-        setTimeout(scan, 1500);
+        // 初始扫描更快更频繁一点
+        setTimeout(scan, 800);
+        setTimeout(scan, 2500);
         const obs = new MutationObserver(() => scan());
         obs.observe(document.body, { childList: true, subtree: true });
     }
