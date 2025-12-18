@@ -1,0 +1,70 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 隐藏滚动条但保留滚动功能 */
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* 扩展自定义样式，用于 Content Script 注入的内容 */
+.context-lingo-word {
+  position: relative;
+  display: inline; 
+  border-radius: 4px;
+}
+
+.context-lingo-wrapper {
+   font-variant: normal;
+   text-transform: none;
+   letter-spacing: normal;
+}
+
+/* Bilingual Paragraph Translation Block */
+.context-lingo-bilingual-block {
+    display: block;
+    margin-top: 8px;
+    margin-bottom: 16px;
+    color: #475569; /* slate-600 */
+    font-size: 0.95em;
+    line-height: 1.6;
+    padding: 8px 12px;
+    background-color: #f8fafc; /* slate-50 */
+    border-left: 3px solid #cbd5e1; /* slate-300 */
+    border-radius: 4px;
+    font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+/* --- Floating Ball Magic Animations --- */
+
+/* Slow Pulse for Halo */
+@keyframes pulse-slow {
+  0%, 100% { opacity: 0.3; transform: scale(1); }
+  50% { opacity: 0.6; transform: scale(1.1); }
+}
+.animate-pulse-slow {
+  animation: pulse-slow 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Slow Spin for Halo Ring */
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.animate-spin-slow {
+  animation: spin-slow 8s linear infinite;
+}
+
+/* Float / Levitation Animation */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-6px); }
+}
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
