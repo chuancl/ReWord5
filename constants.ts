@@ -65,6 +65,14 @@ export const INITIAL_ENGINES: TranslationEngine[] = [
     isWebSimulation: true
   },
   { 
+    id: 'deepl', 
+    name: 'DeepL 翻译', 
+    type: 'standard', 
+    isEnabled: true, 
+    apiKey: '', 
+    isWebSimulation: true 
+  },
+  { 
     id: 'tencent', 
     name: '腾讯翻译君 (Tencent)', 
     type: 'standard', 
@@ -74,14 +82,6 @@ export const INITIAL_ENGINES: TranslationEngine[] = [
     endpoint: 'tmt.tencentcloudapi.com',
     region: 'ap-shanghai',
     projectId: 0
-  },
-  { 
-    id: 'deepl', 
-    name: 'DeepL 翻译', 
-    type: 'standard', 
-    isEnabled: false, 
-    apiKey: '', 
-    isWebSimulation: true 
   },
   { 
     id: 'niutrans', 

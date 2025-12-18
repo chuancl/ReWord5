@@ -6,24 +6,24 @@ import { getHash, getHmac, toHex } from './crypto';
  */
 const callGoogleWebSimulation = async (text: string, target: string = 'en'): Promise<string> => {
     const targetLang = target === 'zh' ? 'zh-CN' : 'en';
-    // client=gtx 是谷歌翻译在某些集成环境下的专用标识，对扩展非常友好
+    // client=gtx 是谷歌翻译在移动端/工具栏环境下的专用标识，对扩展极其友好
     const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(text)}`;
 
     const response = await fetch(url, {
         method: "GET",
         headers: {
             "Accept": "*/*",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+            "Cache-Control": "no-cache"
         }
     });
 
     if (!response.ok) {
-        throw new Error(`Google 翻译异常: ${response.status}`);
+        throw new Error(`Google 翻译响应异常: ${response.status}`);
     }
 
     const resJson = await response.json();
     try {
-        // Google 的返回格式是 [ [[译文, 原文, ...], ...], ... ]
+        // Google 的返回格式是多维数组 [ [[译文, 原文, ...], ...], ... ]
         return resJson[0].map((item: any) => item[0]).join("");
     } catch (e) {
         throw new Error("解析 Google 翻译结果失败");
@@ -36,22 +36,19 @@ const callGoogleWebSimulation = async (text: string, target: string = 'en'): Pro
 const callBaiduWebSimulation = async (text: string, target: string = 'en'): Promise<string> => {
     const to = target === 'zh' ? 'zh' : 'en';
     
-    // 百度网页端通常先通过 langdetect 确认语种
-    const detectUrl = `https://fanyi.baidu.com/langdetect`;
-    let from = 'en';
+    // 1. 语种探测
+    let from = 'auto';
     try {
-        const detectRes = await fetch(detectUrl, {
+        const detectRes = await fetch(`https://fanyi.baidu.com/langdetect`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: `query=${encodeURIComponent(text.substring(0, 50))}`
         });
         const detectJson = await detectRes.json();
         from = detectJson.lan || 'auto';
-    } catch (e) {
-        from = 'auto';
-    }
+    } catch (e) { /* ignore */ }
 
-    // 百度网页翻译接口 (transapi)
+    // 2. 发起翻译 (模拟移动端接口，校验较少)
     const url = `https://fanyi.baidu.com/transapi`;
     const params = new URLSearchParams({
         from: from,
@@ -76,11 +73,11 @@ const callBaiduWebSimulation = async (text: string, target: string = 'en'): Prom
 
     const resJson = await response.json();
     if (resJson.error) {
-        throw new Error(`百度翻译错误: ${resJson.error}`);
+        throw new Error(`百度翻译错误码: ${resJson.error}`);
     }
 
     try {
-        // 百度 transapi 返回格式: { data: [{ dst: '译文', src: '原文' }, ...] }
+        // 百度 transapi 返回: { data: [{ dst: '译文', src: '原文' }, ...] }
         return resJson.data.map((item: any) => item.dst).join("\n");
     } catch (e) {
         throw new Error("解析百度翻译结果失败");
@@ -92,7 +89,11 @@ const callBaiduWebSimulation = async (text: string, target: string = 'en'): Prom
  */
 const callDeepLWebSimulation = async (text: string, target: string = 'en'): Promise<string> => {
     const targetLang = target.toUpperCase() === 'ZH' ? 'ZH' : 'EN';
+    
+    // 生成混淆 ID
     const id = Math.floor(Math.random() * 100000000);
+    
+    // 统计文本中 'i' 的数量 (DeepL 校验反爬指纹的关键)
     const iCount = (text.split('i').length - 1) + (text.split('I').length - 1);
     
     const getTimeStamp = () => {
@@ -125,27 +126,25 @@ const callDeepLWebSimulation = async (text: string, target: string = 'en'): Prom
         id
     };
 
+    // 修复 404：使用 www2 子域名，并在 URL 中显式带上 method 参数
+    // 这是 DeepL RPC 网关的硬性要求，否则 POST 请求可能会被重定向为 GET 导致 404
     const response = await fetch("https://www2.deepl.com/jsonrpc?method=LMT_handle_jobs", {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
             "Accept": "*/*",
-            "Accept-Language": "zh-CN,zh;q=0.9",
             "Cache-Control": "no-cache",
-            "Pragma": "no-cache",
-            "Sec-Fetch-Dest": "empty",
-            "Sec-Fetch-Mode": "cors",
             "Sec-Fetch-Site": "same-site",
         },
         body: JSON.stringify(payload)
     });
 
     if (response.status === 429) {
-        throw new Error("DeepL 429 频率超限。请改用 'Google' 或 '百度' 翻译。");
+        throw new Error("DeepL 频率限制 (429)：您的 IP 请求过多。请切换到 Google 或百度翻译。");
     }
 
     if (!response.ok) {
-        throw new Error(`DeepL 响应异常: ${response.status}`);
+        throw new Error(`DeepL 响应异常: ${response.status} ${response.statusText}`);
     }
 
     const resJson = await response.json();
@@ -155,14 +154,14 @@ const callDeepLWebSimulation = async (text: string, target: string = 'en'): Prom
 
     const translatedText = resJson.result?.translations?.[0]?.beams?.[0]?.sentences?.[0]?.text;
     if (!translatedText) {
-        throw new Error("DeepL 需要人机验证：请前往官网完成一次翻译验证后再使用。");
+        throw new Error("DeepL 触发了人机验证：请打开 www.deepl.com 完成一次手动翻译验证，再回来使用。");
     }
 
     return translatedText;
 };
 
 /**
- * 统一翻译入口
+ * 调用腾讯翻译君 (TMT)
  */
 export const callTencentTranslation = async (engine: TranslationEngine, sourceText: string = 'Hello', target: string = 'en'): Promise<any> => {
   if (!engine.appId || !engine.secretKey) {
@@ -306,6 +305,11 @@ export const translateWithEngine = async (engine: TranslationEngine, text: strin
                 return res.Response?.TargetText || "";
             }
             default: {
+                // 如果是自定义引擎，根据配置选择调用逻辑
+                if (engine.id.startsWith('custom-')) {
+                   // 暂时作为模拟处理
+                   return `Custom Result: ${text}`;
+                }
                 return `Simulated: ${text}`;
             }
         }

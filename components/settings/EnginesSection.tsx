@@ -46,6 +46,9 @@ export const EnginesSection: React.FC<EnginesSectionProps> = ({ engines, setEngi
   };
   
   const handleDeleteEngine = (id: string) => {
+    if (['google', 'baidu', 'deepl'].includes(id)) {
+        if (!confirm('这是系统内置引擎，确定要删除吗？')) return;
+    }
     setEngines(prev => prev.filter(e => e.id !== id));
   };
 
@@ -114,7 +117,7 @@ export const EnginesSection: React.FC<EnginesSectionProps> = ({ engines, setEngi
                     <div className="flex items-center gap-2">
                        <span className="font-bold text-slate-800">{engine.name}</span>
                        <span className={`text-[10px] px-1.5 py-0.5 rounded border ${engine.id === 'google' || engine.id === 'baidu' || engine.isWebSimulation ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : engine.type === 'ai' ? 'bg-purple-50 text-purple-600 border-purple-100' : 'bg-slate-50 text-slate-500 border-slate-100'}`}>
-                           {engine.id === 'google' || engine.id === 'baidu' || engine.isWebSimulation ? 'Web 模拟 (免 Key)' : engine.type === 'ai' ? 'AI Model' : 'Standard API'}
+                           {engine.id === 'google' || engine.id === 'baidu' || engine.isWebSimulation ? '网页模拟 (免 Key)' : engine.type === 'ai' ? 'AI 模型' : '标准 API'}
                        </span>
                     </div>
                     <div className="flex items-center space-x-2">
@@ -123,7 +126,7 @@ export const EnginesSection: React.FC<EnginesSectionProps> = ({ engines, setEngi
                        {engine.testResult === 'fail' && (
                          <Tooltip text={engine.testErrorMessage || "未知错误"}>
                            <span className="flex items-center text-xs text-red-600 cursor-help bg-red-50 px-2 py-0.5 rounded border border-red-100">
-                             <AlertCircle className="w-3 h-3 mr-1"/> 测试失败 (查看原因)
+                             <AlertCircle className="w-3 h-3 mr-1"/> 测试失败 (点击查看)
                            </span>
                          </Tooltip>
                        )}
@@ -133,33 +136,20 @@ export const EnginesSection: React.FC<EnginesSectionProps> = ({ engines, setEngi
                   </div>
                   {engine.isEnabled && (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm animate-in fade-in slide-in-from-top-2 cursor-default" onMouseDown={e => e.stopPropagation()}>
-                       {/* 腾讯专用字段 */}
-                       {engine.id === 'tencent' && (
-                          <>
-                             <div className="col-span-2 md:col-span-1">
-                                 <label className="text-[10px] text-slate-500 mb-1 block">SecretId</label>
-                                 <input type="text" placeholder="AKID..." className="px-3 py-2 border border-slate-300 rounded w-full font-mono text-xs" value={engine.appId || ''} onChange={e => setEngines(prev => prev.map(en => en.id === engine.id ? {...en, appId: e.target.value} : en))} />
-                             </div>
-                             <div className="col-span-2 md:col-span-1">
-                                 <label className="text-[10px] text-slate-500 mb-1 block">SecretKey</label>
-                                 <input type="password" placeholder="Key..." className="px-3 py-2 border border-slate-300 rounded w-full font-mono text-xs" value={engine.secretKey || ''} onChange={e => setEngines(prev => prev.map(en => en.id === engine.id ? {...en, secretKey: e.target.value} : en))} />
-                             </div>
-                          </>
-                       )}
                        
-                       {/* Google 专用字段 (免 Key) */}
+                       {/* Google 专用说明 */}
                        {engine.id === 'google' && (
                           <div className="col-span-2 text-[11px] text-emerald-600 bg-emerald-50/50 p-3 rounded-lg border border-emerald-100 flex items-start gap-2">
-                              <div className="mt-0.5"><CheckCircle className="w-3.5 h-3.5 text-emerald-400" /></div>
-                              <p>Google 网页模拟模式：无需任何配置。这是目前兼容性最好的翻译方案，支持长文本且极度稳定。</p>
+                              <div className="mt-0.5"><Zap className="w-3.5 h-3.5 text-emerald-400 fill-emerald-400" /></div>
+                              <p><b>Google 网页模拟模式：</b>无需 API Key。这是兼容性最强、请求最稳定的引擎。支持长文本且极少被封禁。</p>
                           </div>
                        )}
 
-                       {/* 百度专用字段 (免 Key) */}
+                       {/* 百度专用说明 */}
                        {engine.id === 'baidu' && (
                           <div className="col-span-2 text-[11px] text-emerald-600 bg-emerald-50/50 p-3 rounded-lg border border-emerald-100 flex items-start gap-2">
-                              <div className="mt-0.5"><CheckCircle className="w-3.5 h-3.5 text-emerald-400" /></div>
-                              <p>百度网页模拟模式：模拟手机浏览器调用百度翻译。无需 API Key，适合国内网络环境下快速使用。</p>
+                              <div className="mt-0.5"><Zap className="w-3.5 h-3.5 text-emerald-400 fill-emerald-400" /></div>
+                              <p><b>百度网页模拟模式：</b>无需 API Key。针对国内网络环境做了优化，模拟手机浏览器发起请求，适合作为 Google 的备选方案。</p>
                           </div>
                        )}
 
@@ -180,13 +170,7 @@ export const EnginesSection: React.FC<EnginesSectionProps> = ({ engines, setEngi
                                     官方 API 模式
                                 </button>
                             </div>
-                            {!engine.isWebSimulation && (
-                                <div className="animate-in fade-in zoom-in-95">
-                                    <label className="text-[10px] text-slate-500 mb-1 block">API Key</label>
-                                    <input type="password" placeholder="请输入 DeepL API Key" className="px-3 py-2 border border-slate-300 rounded w-full font-mono text-xs" value={engine.apiKey || ''} onChange={e => setEngines(prev => prev.map(en => en.id === engine.id ? {...en, apiKey: e.target.value} : en))} />
-                                </div>
-                            )}
-                            {engine.isWebSimulation && (
+                            {engine.isWebSimulation ? (
                                 <div className="text-[11px] text-slate-500 bg-blue-50/50 p-3 rounded-lg border border-blue-100 flex flex-col gap-2">
                                     <div className="flex items-start gap-2">
                                         <div className="mt-0.5"><Zap className="w-3.5 h-3.5 text-blue-400" /></div>
@@ -194,21 +178,38 @@ export const EnginesSection: React.FC<EnginesSectionProps> = ({ engines, setEngi
                                     </div>
                                     <div className="flex items-start gap-2 text-[10px] text-amber-600 bg-amber-50/50 p-2 rounded">
                                         <AlertCircle className="w-3 h-3 mt-0.5 shrink-0" />
-                                        <p>注意：DeepL 对频率限制极严。若失效，请优先切换至 <b>Google</b> 或 <b>百度</b> 翻译。</p>
+                                        <p>注意：DeepL 对 IP 频率限制极严。如果报错 429 或 404，请优先改用 <b>Google</b> 或 <b>百度</b>。</p>
                                     </div>
+                                </div>
+                            ) : (
+                                <div className="animate-in fade-in zoom-in-95">
+                                    <label className="text-[10px] text-slate-500 mb-1 block">DeepL API Key</label>
+                                    <input type="password" placeholder="请输入 API Key" className="px-3 py-2 border border-slate-300 rounded w-full font-mono text-xs" value={engine.apiKey || ''} onChange={e => setEngines(prev => prev.map(en => en.id === engine.id ? {...en, apiKey: e.target.value} : en))} />
                                 </div>
                             )}
                          </div>
                        )}
+
+                       {/* 腾讯专用字段 */}
+                       {engine.id === 'tencent' && (
+                          <>
+                             <div className="col-span-2 md:col-span-1">
+                                 <label className="text-[10px] text-slate-500 mb-1 block">SecretId</label>
+                                 <input type="text" placeholder="AKID..." className="px-3 py-2 border border-slate-300 rounded w-full font-mono text-xs" value={engine.appId || ''} onChange={e => setEngines(prev => prev.map(en => en.id === engine.id ? {...en, appId: e.target.value} : en))} />
+                             </div>
+                             <div className="col-span-2 md:col-span-1">
+                                 <label className="text-[10px] text-slate-500 mb-1 block">SecretKey</label>
+                                 <input type="password" placeholder="Key..." className="px-3 py-2 border border-slate-300 rounded w-full font-mono text-xs" value={engine.secretKey || ''} onChange={e => setEngines(prev => prev.map(en => en.id === engine.id ? {...en, secretKey: e.target.value} : en))} />
+                             </div>
+                          </>
+                       )}
+                       
                        {/* 小牛翻译 */}
                        {engine.id === 'niutrans' && (
                          <div className="col-span-2">
                              <label className="text-[10px] text-slate-500 mb-1 block">API Key</label>
                              <input type="password" placeholder="请输入 API Key" className="px-3 py-2 border border-slate-300 rounded w-full font-mono text-xs" value={engine.apiKey || ''} onChange={e => setEngines(prev => prev.map(en => en.id === engine.id ? {...en, apiKey: e.target.value} : en))} />
                          </div>
-                       )}
-                       {engine.type === 'ai' && (
-                          <input type="text" placeholder="Model Name (e.g. gpt-4)" className="px-3 py-2 border border-slate-300 rounded w-full" defaultValue={engine.model} />
                        )}
                     </div>
                   )}
@@ -217,8 +218,9 @@ export const EnginesSection: React.FC<EnginesSectionProps> = ({ engines, setEngi
             </div>
           ))}
         </div>
+        {/* 词典部分保持不变 */}
         <div className="p-6 border-t border-slate-200 bg-slate-50">
-            <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center"><Book className="w-4 h-4 mr-2 text-slate-500"/> 词典数据源 (Dictionary Sources)</h3>
+            <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center"><Book className="w-4 h-4 mr-2 text-slate-500"/> 词典数据源</h3>
             <div className="space-y-3">
                 {dictionaries.map(dict => (
                     <div key={dict.id} className={`flex items-start gap-3 p-3 border rounded-lg shadow-sm transition-all ${dict.isEnabled ? 'bg-white border-slate-200' : 'bg-slate-100 border-slate-100 opacity-70'}`}>
