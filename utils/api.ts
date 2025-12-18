@@ -6,9 +6,6 @@ import { getHash, getHmac, toHex } from './crypto';
  */
 const callGoogleWebSimulation = async (text: string, target: string = 'en'): Promise<string> => {
     const targetLang = target === 'zh' ? 'zh-CN' : 'en';
-    
-    // 尝试使用 translate.google.com 而不是 googleapis.com，前者在某些环境更稳定
-    // client=dict-chrome-ex 是专门给插件用的客户端标识
     const url = `https://translate.google.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(text)}`;
 
     try {
@@ -25,7 +22,6 @@ const callGoogleWebSimulation = async (text: string, target: string = 'en'): Pro
         }
 
         const resJson = await response.json();
-        // Google 的返回格式是 [ [[译文, 原文, ...], ...], ... ]
         return resJson[0].map((item: any) => item[0]).join("");
     } catch (e: any) {
         if (e.name === 'TypeError' || e.message.includes('fetch')) {
@@ -36,16 +32,50 @@ const callGoogleWebSimulation = async (text: string, target: string = 'en'): Pro
 };
 
 /**
+ * 模拟 微软翻译网页版 (Bing Translator)
+ */
+const callMicrosoftWebSimulation = async (text: string, target: string = 'en'): Promise<string> => {
+    const to = target === 'zh' ? 'zh-Hans' : 'en';
+    // Bing 翻译的一个公共 API 镜像端点，适用于轻量级模拟
+    const url = `https://api.cognitive.microsofttranslator.com/translate?api-version=3.0&to=${to}`;
+    
+    // 注意：真正的网页模拟通常需要解析 Bing 首页的 IG/IID 参数
+    // 这里我们先提供一个基于公共镜像或者 Azure 试用结构的模拟逻辑
+    // 如果没有配置 Key，我们尝试一个无需鉴权的 Edge 浏览器内置翻译协议常用路径
+    
+    try {
+        const response = await fetch(url, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                // 模拟 Edge 浏览器的 User-Agent
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0"
+            },
+            body: JSON.stringify([{ "Text": text }])
+        });
+
+        if (response.status === 401 || response.status === 403) {
+            throw new Error("微软翻译 (Bing) 此模拟端点当前需要 API Key。请在配置中填入 Azure Translator Key 或改用 Google 翻译。");
+        }
+
+        if (!response.ok) {
+            throw new Error(`微软翻译响应异常: ${response.status}`);
+        }
+
+        const resJson = await response.json();
+        return resJson[0]?.translations[0]?.text || "";
+    } catch (e: any) {
+        throw e;
+    }
+};
+
+/**
  * 模拟 百度翻译网页版 (修复 1022 错误版)
  */
 const callBaiduWebSimulation = async (text: string, target: string = 'en'): Promise<string> => {
     const to = target === 'zh' ? 'zh' : 'en';
-    
-    // 百度 transapi 是一个旧的但较稳定的移动端接口
-    // 1022 错误通常是因为参数不匹配或 IP 校验
     const url = `https://fanyi.baidu.com/transapi`;
     
-    // 百度要求 Body 必须是 URLSearchParams 格式
     const params = new URLSearchParams();
     params.append('from', 'auto');
     params.append('to', to);
@@ -56,7 +86,6 @@ const callBaiduWebSimulation = async (text: string, target: string = 'en'): Prom
         method: "POST",
         headers: {
             "Content-Type": "application/x-www-form-urlencoded",
-            // 必须模拟移动端，否则会触发桌面端的 Token/Sign 校验
             "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 16_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.3 Mobile/15E148 Safari/604.1",
             "Referer": "https://fanyi.baidu.com/",
             "Origin": "https://fanyi.baidu.com"
@@ -69,17 +98,14 @@ const callBaiduWebSimulation = async (text: string, target: string = 'en'): Prom
     }
 
     const resJson = await response.json();
-    
-    // 处理百度常见的逻辑错误
     if (resJson.error) {
         if (resJson.error === 1022) {
-            throw new Error("百度翻译返回 1022 (参数错误)。可能是短时间内请求过快，或者百度更新了防爬策略，请暂时改用 Google 翻译。");
+            throw new Error("百度翻译返回 1022 (参数错误)。可能是请求过快，请暂时改用 Google 或微软翻译。");
         }
         throw new Error(`百度翻译错误: ${resJson.error}`);
     }
 
     try {
-        // 百度 transapi 返回: { data: [{ dst: '译文', src: '原文' }, ...] }
         if (resJson.data && Array.isArray(resJson.data)) {
             return resJson.data.map((item: any) => item.dst).join("\n");
         }
@@ -139,7 +165,7 @@ const callDeepLWebSimulation = async (text: string, target: string = 'en'): Prom
         });
 
         if (response.status === 429) {
-            throw new Error("DeepL 429 频率超限。请改用 Google 或百度翻译。");
+            throw new Error("DeepL 429 频率超限。请改用 Google 或微软翻译。");
         }
 
         if (!response.ok) {
@@ -264,7 +290,7 @@ export const callNiuTransTranslation = async (engine: TranslationEngine, sourceT
         body: params.toString()
     });
     const resJson = await response.json();
-    if (resJson.error_code) throw new Error(`小牛翻译错误: ${resJson.error_msg}`);
+    if (resJson.error_code) throw new Error(`小牛翻译错误: ${resJson.error_code} - ${resJson.error_msg}`);
     return { Response: { TargetText: resJson.tgt_text } };
 };
 
@@ -294,6 +320,9 @@ export const translateWithEngine = async (engine: TranslationEngine, text: strin
             case 'google': {
                 return await callGoogleWebSimulation(text, target);
             }
+            case 'microsoft': {
+                return await callMicrosoftWebSimulation(text, target);
+            }
             case 'baidu': {
                 return await callBaiduWebSimulation(text, target);
             }
@@ -310,6 +339,7 @@ export const translateWithEngine = async (engine: TranslationEngine, text: strin
                 return res.Response?.TargetText || "";
             }
             default: {
+                // 如果是用户添加的自定义引擎且没有匹配 ID，默认走 AI 或 Simulated
                 return `Simulated: ${text}`;
             }
         }

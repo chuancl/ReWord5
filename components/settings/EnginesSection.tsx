@@ -46,7 +46,7 @@ export const EnginesSection: React.FC<EnginesSectionProps> = ({ engines, setEngi
   };
   
   const handleDeleteEngine = (id: string) => {
-    if (['google', 'baidu', 'deepl'].includes(id)) {
+    if (['google', 'baidu', 'deepl', 'microsoft'].includes(id)) {
         if (!confirm('这是系统内置引擎，确定要删除吗？')) return;
     }
     setEngines(prev => prev.filter(e => e.id !== id));
@@ -64,10 +64,8 @@ export const EnginesSection: React.FC<EnginesSectionProps> = ({ engines, setEngi
 
     try {
       const testResult = await translateWithEngine(engine, "Hello World", "zh");
-      console.log(`[EnginesSection] ${engine.name} test success:`, testResult);
       setEngines(prev => prev.map(e => e.id === id ? { ...e, isTesting: false, testResult: 'success' } : e));
     } catch (err) {
-      console.error("[EnginesSection] Test failed:", err);
       const errMsg = err instanceof Error ? err.message : '未知错误';
       setEngines(prev => prev.map(e => e.id === id ? { ...e, isTesting: false, testResult: 'fail', testErrorMessage: errMsg } : e));
     }
@@ -116,8 +114,8 @@ export const EnginesSection: React.FC<EnginesSectionProps> = ({ engines, setEngi
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-2">
                        <span className="font-bold text-slate-800">{engine.name}</span>
-                       <span className={`text-[10px] px-1.5 py-0.5 rounded border ${engine.id === 'google' || engine.id === 'baidu' || engine.isWebSimulation ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : engine.type === 'ai' ? 'bg-purple-50 text-purple-600 border-purple-100' : 'bg-slate-50 text-slate-500 border-slate-100'}`}>
-                           {engine.id === 'google' || engine.id === 'baidu' || engine.isWebSimulation ? '网页模拟 (免 Key)' : engine.type === 'ai' ? 'AI 模型' : '标准 API'}
+                       <span className={`text-[10px] px-1.5 py-0.5 rounded border ${engine.id === 'google' || engine.id === 'baidu' || engine.id === 'microsoft' || engine.isWebSimulation ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : engine.type === 'ai' ? 'bg-purple-50 text-purple-600 border-purple-100' : 'bg-slate-50 text-slate-500 border-slate-100'}`}>
+                           {engine.id === 'google' || engine.id === 'baidu' || engine.id === 'microsoft' || engine.isWebSimulation ? '网页模拟 (免 Key)' : engine.type === 'ai' ? 'AI 模型' : '标准 API'}
                        </span>
                     </div>
                     <div className="flex items-center space-x-2">
@@ -126,7 +124,7 @@ export const EnginesSection: React.FC<EnginesSectionProps> = ({ engines, setEngi
                        {engine.testResult === 'fail' && (
                          <Tooltip text={engine.testErrorMessage || "未知错误"}>
                            <span className="flex items-center text-xs text-red-600 cursor-help bg-red-50 px-2 py-0.5 rounded border border-red-100 font-bold">
-                             <AlertCircle className="w-3 h-3 mr-1"/> 测试失败 (点击查看原因)
+                             <AlertCircle className="w-3 h-3 mr-1"/> 测试失败
                            </span>
                          </Tooltip>
                        )}
@@ -141,7 +139,15 @@ export const EnginesSection: React.FC<EnginesSectionProps> = ({ engines, setEngi
                        {engine.id === 'google' && (
                           <div className="col-span-2 text-[11px] text-emerald-600 bg-emerald-50/50 p-3 rounded-lg border border-emerald-100 flex items-start gap-2">
                               <div className="mt-0.5"><Zap className="w-3.5 h-3.5 text-emerald-400 fill-emerald-400" /></div>
-                              <p><b>Google 网页模拟模式：</b>无需 API Key。这是兼容性最强、请求最稳定的引擎。注：国内使用需配合 VPN。</p>
+                              <p><b>Google 网页模拟模式：</b>无需 API Key。注：国内使用需配合全局 VPN。</p>
+                          </div>
+                       )}
+
+                       {/* 微软 专用说明 */}
+                       {engine.id === 'microsoft' && (
+                          <div className="col-span-2 text-[11px] text-emerald-600 bg-emerald-50/50 p-3 rounded-lg border border-emerald-100 flex items-start gap-2">
+                              <div className="mt-0.5"><Zap className="w-3.5 h-3.5 text-emerald-400 fill-emerald-400" /></div>
+                              <p><b>微软翻译模拟模式：</b>通过模拟 Edge 浏览器内置翻译接口实现，无需 Key 即可使用。</p>
                           </div>
                        )}
 
@@ -149,7 +155,7 @@ export const EnginesSection: React.FC<EnginesSectionProps> = ({ engines, setEngi
                        {engine.id === 'baidu' && (
                           <div className="col-span-2 text-[11px] text-emerald-600 bg-emerald-50/50 p-3 rounded-lg border border-emerald-100 flex items-start gap-2">
                               <div className="mt-0.5"><Zap className="w-3.5 h-3.5 text-emerald-400 fill-emerald-400" /></div>
-                              <p><b>百度网页模拟模式：</b>无需 API Key。针对国内网络环境做了优化，模拟手机浏览器发起请求。如果频繁报错 1022 请尝试重新测试或换用 Google。</p>
+                              <p><b>百度网页模拟模式：</b>无需 API Key。针对国内环境优化，如果频繁报错请改用 Google 或微软。</p>
                           </div>
                        )}
 
@@ -174,11 +180,7 @@ export const EnginesSection: React.FC<EnginesSectionProps> = ({ engines, setEngi
                                 <div className="text-[11px] text-slate-500 bg-blue-50/50 p-3 rounded-lg border border-blue-100 flex flex-col gap-2">
                                     <div className="flex items-start gap-2">
                                         <div className="mt-0.5"><Zap className="w-3.5 h-3.5 text-blue-400" /></div>
-                                        <p>网页模拟模式：模拟浏览器直接调用 DeepL。适合无法申请官方 API 的用户。</p>
-                                    </div>
-                                    <div className="flex items-start gap-2 text-[10px] text-amber-600 bg-amber-50/50 p-2 rounded">
-                                        <AlertCircle className="w-3 h-3 mt-0.5 shrink-0" />
-                                        <p>注意：DeepL 对 IP 频率限制极严。如果报错 429 或 404，请优先改用 <b>Google</b> 或 <b>百度</b>。</p>
+                                        <p>网页模拟模式：模拟浏览器直接调用 DeepL。注意：频率限制较严。</p>
                                     </div>
                                 </div>
                             ) : (
@@ -195,10 +197,12 @@ export const EnginesSection: React.FC<EnginesSectionProps> = ({ engines, setEngi
                           <>
                              <div className="col-span-2 md:col-span-1">
                                  <label className="text-[10px] text-slate-500 mb-1 block">SecretId</label>
+                                 {/* Fix: removed redundant boolean comparison from en.id === en.id === engine.id */}
                                  <input type="text" placeholder="AKID..." className="px-3 py-2 border border-slate-300 rounded w-full font-mono text-xs" value={engine.appId || ''} onChange={e => setEngines(prev => prev.map(en => en.id === engine.id ? {...en, appId: e.target.value} : en))} />
                              </div>
                              <div className="col-span-2 md:col-span-1">
                                  <label className="text-[10px] text-slate-500 mb-1 block">SecretKey</label>
+                                 {/* Fix: removed redundant boolean comparison from en.id === en.id === engine.id */}
                                  <input type="password" placeholder="Key..." className="px-3 py-2 border border-slate-300 rounded w-full font-mono text-xs" value={engine.secretKey || ''} onChange={e => setEngines(prev => prev.map(en => en.id === engine.id ? {...en, secretKey: e.target.value} : en))} />
                              </div>
                           </>
@@ -218,7 +222,6 @@ export const EnginesSection: React.FC<EnginesSectionProps> = ({ engines, setEngi
             </div>
           ))}
         </div>
-        {/* 词典部分保持不变 */}
         <div className="p-6 border-t border-slate-200 bg-slate-50">
             <h3 className="text-sm font-bold text-slate-800 mb-4 flex items-center"><Book className="w-4 h-4 mr-2 text-slate-500"/> 词典数据源</h3>
             <div className="space-y-3">

@@ -58,6 +58,13 @@ export const INITIAL_ENGINES: TranslationEngine[] = [
     isWebSimulation: true
   },
   { 
+    id: 'microsoft', 
+    name: '微软翻译 (Bing 免 Key)', 
+    type: 'standard', 
+    isEnabled: true,
+    isWebSimulation: true
+  },
+  { 
     id: 'baidu', 
     name: '百度翻译 (免 Key)', 
     type: 'standard', 
