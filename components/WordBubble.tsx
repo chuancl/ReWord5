@@ -80,10 +80,20 @@ export const WordBubble: React.FC<WordBubbleProps> = ({
      playSentenceAudio(text, undefined, config.autoPronounceAccent, ttsSpeed);
   };
 
+  // 跳转到详情页
   const openDetail = (e?: React.MouseEvent) => {
       e?.stopPropagation();
       if (!entry) return;
       const path = `/options.html?view=word-detail&word=${encodeURIComponent(entry.text)}`;
+      browser.runtime.sendMessage({ action: 'OPEN_OPTIONS_PAGE', path });
+  };
+
+  // 跳转到词汇管理并搜索
+  const openInManager = (e?: React.MouseEvent) => {
+      e?.stopPropagation();
+      if (!entry) return;
+      // 设置跳转路径：视图为 words，页签为 all，搜索词为当前单词
+      const path = `/options.html?view=words&tab=all&search=${encodeURIComponent(entry.text)}`;
       browser.runtime.sendMessage({ action: 'OPEN_OPTIONS_PAGE', path });
   };
 
@@ -158,8 +168,8 @@ export const WordBubble: React.FC<WordBubbleProps> = ({
             <div>
                 <h4 
                     style={wordStyle} 
-                    onClick={() => openDetail()}
-                    title="在新标签页查看详细释义"
+                    onClick={() => openInManager()}
+                    title="在新标签页搜索此单词"
                     onMouseEnter={(e) => { e.currentTarget.style.color = '#2563eb'; e.currentTarget.style.textDecorationColor = '#93c5fd'; }}
                     onMouseLeave={(e) => { e.currentTarget.style.color = '#0f172a'; e.currentTarget.style.textDecorationColor = 'transparent'; }}
                 >
