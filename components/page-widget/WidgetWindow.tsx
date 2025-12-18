@@ -1,7 +1,6 @@
 import React from 'react';
 import { PageWidgetConfig, WordTab, WordCategory, WordEntry } from '../../types';
-import { X, Settings2, CheckSquare, Square, BookOpen, GripVertical, Download, ExternalLink, PlayCircle, Filter, Star, BarChart2 } from 'lucide-react';
-import { browser } from 'wxt/browser';
+import { X, Settings2, CheckSquare, Square, GripVertical, Download, ExternalLink, PlayCircle, Filter, Star, BarChart2 } from 'lucide-react';
 import { playTextToSpeech } from '../../utils/audio';
 
 interface WidgetWindowProps {
@@ -25,7 +24,7 @@ interface WidgetWindowProps {
     handleConfigDragOver: (e: React.DragEvent, idx: number) => void;
     handleConfigDragEnd: () => void;
     draggedConfigIndex: number | null;
-    onOpenDetail?: (word: string) => void; // 新增跳转回调
+    onOpenDetail?: (word: string) => void; // 用于触发跳转
 }
 
 export const WidgetWindow: React.FC<WidgetWindowProps> = ({
@@ -223,7 +222,7 @@ export const WidgetWindow: React.FC<WidgetWindowProps> = ({
                                 onClick={handleBatchSetToLearning}
                                 className="flex items-center px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 border border-blue-100 text-xs font-medium transition animate-in slide-in-from-right-2 fade-in"
                             >
-                                <BookOpen className="w-3.5 h-3.5 mr-1.5" /> 添加到正在学
+                                <svg className="w-3.5 h-3.5 mr-1.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M8 7h6"/><path d="M8 11h8"/></svg> 添加到正在学
                             </button>
                         )}
                         
@@ -272,11 +271,11 @@ export const WidgetWindow: React.FC<WidgetWindowProps> = ({
                                 <div className="flex justify-between items-start mb-3">
                                     <div className="flex flex-col gap-1.5 w-full">
                                         <div className="flex items-center gap-3 flex-wrap">
-                                            {/* 单词标题：增加点击跳转详情的功能 */}
+                                            {/* 单词标题：点击跳转详情在新标签页 */}
                                             <h3 
-                                                className="font-bold text-xl text-slate-800 m-0 cursor-pointer hover:text-blue-600 hover:underline decoration-blue-200 transition-all"
-                                                onClick={() => onOpenDetail?.(word.text)}
-                                                title="点击查看详细信息"
+                                                className="font-bold text-xl text-slate-800 m-0 cursor-pointer hover:text-blue-600 hover:underline decoration-blue-200 transition-all select-none"
+                                                onClick={(e) => { e.stopPropagation(); onOpenDetail?.(word.text); }}
+                                                title="在新标签页查看详细信息"
                                             >
                                                 {word.text}
                                             </h3>

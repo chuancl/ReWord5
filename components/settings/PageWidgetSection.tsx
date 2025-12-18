@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { PageWidgetConfig, WordCategory } from '../../types';
-import { GripVertical, PlayCircle, BarChart2, Star, BookOpen } from 'lucide-react';
+import { PageWidgetConfig } from '../../types';
+import { GripVertical, PlayCircle, BarChart2, Star } from 'lucide-react';
+import { browser } from 'wxt/browser';
 
 export interface PageWidgetSectionProps {
   widget: PageWidgetConfig;
   setWidget: React.Dispatch<React.SetStateAction<PageWidgetConfig>>;
-  onOpenDetail?: (word: string) => void; // 增加跳转回调
+  onOpenDetail?: (word: string) => void;
 }
 
 export const PageWidgetSection: React.FC<PageWidgetSectionProps> = ({ widget, setWidget, onOpenDetail }) => {
@@ -28,6 +29,12 @@ export const PageWidgetSection: React.FC<PageWidgetSectionProps> = ({ widget, se
       const newOrder = [...widget.cardDisplay];
       newOrder[index].enabled = !newOrder[index].enabled;
       setWidget({ ...widget, cardDisplay: newOrder });
+   };
+
+   // 设置页面预览跳转也使用新标签页逻辑
+   const handlePreviewWordClick = () => {
+       const url = browser.runtime.getURL('/options.html?view=word-detail&word=ephemeral');
+       window.open(url, '_blank');
    };
 
    return (
@@ -138,18 +145,15 @@ export const PageWidgetSection: React.FC<PageWidgetSectionProps> = ({ widget, se
              <div className="border-t border-slate-100 pt-8">
                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">列表卡片样式预览</h3>
                  <div className="bg-slate-50 border border-slate-200 rounded-lg p-12 flex justify-center items-center">
-                    {/* Clean Card Preview matching WordManager style - now WIDER */}
                     <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-5 w-full">
                          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
                             <div className="flex flex-col gap-2">
                                 <div className="flex items-baseline gap-3">
-                                    {/* 预览中的单词标题：增加跳转视觉提示 */}
                                     <h3 
-                                      className="text-2xl font-bold text-slate-900 tracking-tight cursor-pointer hover:text-blue-600 hover:underline decoration-blue-200 transition-all flex items-center group/p-title"
-                                      onClick={() => onOpenDetail?.('ephemeral')}
+                                      className="text-2xl font-bold text-slate-900 tracking-tight cursor-pointer hover:text-blue-600 hover:underline decoration-blue-200 transition-all select-none"
+                                      onClick={handlePreviewWordClick}
                                     >
                                       ephemeral
-                                      <BookOpen className="w-4 h-4 ml-2 opacity-0 group-hover/p-title:opacity-40 transition-opacity" />
                                     </h3>
                                     
                                     {widget.showPartOfSpeech && (

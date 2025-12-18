@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { WordEntry, WordCategory, MergeStrategyConfig } from '../../types';
-import { PlayCircle, MapPin, ExternalLink, Filter, BarChart2, Star, Youtube, Image as ImageIcon, BookOpen } from 'lucide-react';
+import { PlayCircle, MapPin, ExternalLink, Filter, BarChart2, Star, Youtube, Image as ImageIcon } from 'lucide-react';
 import { playWordAudio, playSentenceAudio } from '../../utils/audio';
+import { browser } from 'wxt/browser';
 
 interface WordListProps {
     groupedEntries: WordEntry[][];
@@ -14,7 +15,7 @@ interface WordListProps {
     isAllWordsTab: boolean;
     searchQuery: string;
     ttsSpeed?: number;
-    onOpenDetail?: (word: string) => void; // 新增跳转回调
+    onOpenDetail?: (word: string) => void;
 }
 
 const InfoTag: React.FC<{ text: string, trans: string }> = ({ text, trans }) => (
@@ -30,6 +31,12 @@ export const WordList: React.FC<WordListProps> = ({
     
     // Image Preview State
     const [previewImage, setPreviewImage] = useState<{ url: string; rect: DOMRect } | null>(null);
+
+    // 统一的新标签页打开逻辑
+    const handleWordClick = (word: string) => {
+        const url = browser.runtime.getURL(`/options.html?view=word-detail&word=${encodeURIComponent(word)}`);
+        window.open(url, '_blank');
+    };
 
     if (groupedEntries.length === 0) {
         return (
@@ -57,14 +64,13 @@ export const WordList: React.FC<WordListProps> = ({
                     {/* Header Row */}
                     <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                       <div className="flex items-center gap-3 flex-wrap">
-                          {/* 单词标题：增加点击跳转详情的功能 */}
+                          {/* 单词标题：在新标签页打开 */}
                           <h3 
-                            className="text-2xl font-bold text-slate-900 tracking-tight cursor-pointer hover:text-blue-600 hover:underline decoration-blue-200 underline-offset-4 transition-all flex items-center group/title"
-                            onClick={() => onOpenDetail?.(primary.text)}
-                            title="点击查看单词详细释义、词源、例句等"
+                            className="text-2xl font-bold text-slate-900 tracking-tight cursor-pointer hover:text-blue-600 hover:underline decoration-blue-200 underline-offset-4 transition-all"
+                            onClick={() => handleWordClick(primary.text)}
+                            title="在新标签页查看详细释义"
                           >
                             {primary.text}
-                            <BookOpen className="w-4 h-4 ml-2 opacity-0 group-hover/title:opacity-40 transition-opacity" />
                           </h3>
                           
                           {mergeConfig.showPartOfSpeech && primary.partOfSpeech && (
