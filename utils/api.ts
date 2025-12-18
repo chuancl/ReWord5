@@ -14,7 +14,6 @@ const callGoogleWebSimulation = async (text: string, target: string = 'en'): Pro
     }
 
     const resJson = await response.json();
-    // Google 的返回格式是 [ [[译文, 原文, ...], ...], ... ]
     try {
         return resJson[0].map((item: any) => item[0]).join("");
     } catch (e) {
@@ -23,24 +22,22 @@ const callGoogleWebSimulation = async (text: string, target: string = 'en'): Pro
 };
 
 /**
- * 模拟 DeepL 网页版 JSON-RPC 请求 (硬化版)
+ * 模拟 DeepL 网页版 JSON-RPC 请求 (最终修复版)
  */
 const callDeepLWebSimulation = async (text: string, target: string = 'en'): Promise<string> => {
     const targetLang = target.toUpperCase() === 'ZH' ? 'ZH' : 'EN';
     
-    // 生成混淆 ID：DeepL 内部有时会校验 ID 的范围
-    const id = (Math.floor(Math.random() * 100000) + 123000) * 1000;
+    // 生成混淆 ID：DeepL 现在期望一个较大的随机整数
+    const id = Math.floor(Math.random() * 100000000);
     
-    // 核心混淆：统计文本中 'i' 的数量
+    // 核心混淆：统计文本中 'i' 的数量 (DeepL 反爬关键)
     const iCount = (text.split('i').length - 1) + (text.split('I').length - 1);
     
     const getTimeStamp = () => {
-        let ts = Date.now();
-        if (iCount !== 0) {
-            // 这个偏移量是 DeepL 识别“人”还是“机”的关键特征
-            ts = ts - (ts % (iCount + 1)) + (iCount + 1);
-        }
-        return ts;
+        const ts = Date.now();
+        if (iCount === 0) return ts;
+        // 修正逻辑：确保 ts - (ts % (iCount + 1)) + (iCount + 1)
+        return ts - (ts % (iCount + 1)) + (iCount + 1);
     };
 
     const payload = {
@@ -49,7 +46,7 @@ const callDeepLWebSimulation = async (text: string, target: string = 'en'): Prom
         params: {
             jobs: [{
                 kind: "default",
-                sentences: [{ text, id: 1, prefix: "" }],
+                sentences: [{ text, id: 0, prefix: "" }],
                 raw_en_context_before: [],
                 raw_en_context_after: []
             }],
@@ -57,18 +54,19 @@ const callDeepLWebSimulation = async (text: string, target: string = 'en'): Prom
                 target_lang: targetLang,
                 source_lang_user_selected: "auto"
             },
-            priority: -1, // 网页版非 Pro 用户通常是 -1
+            priority: 1,
             commonJobParams: {
                 browserType: 1,
-                // formality: null // 移除冗余字段减少特征
+                formality: null
             },
             timestamp: getTimeStamp()
         },
         id
     };
 
-    // 使用主域名尝试，有时 www2 的限制更严
-    const response = await fetch("https://www.deepl.com/jsonrpc?method=LMT_handle_jobs", {
+    // 使用 www2 子域名。www 主域名会根据 IP 重定向到 /zh/translator，导致 POST 变 GET 报 404
+    // 在 URL 中显式带上 method 参数是 DeepL 某些节点的硬性要求
+    const response = await fetch("https://www2.deepl.com/jsonrpc?method=LMT_handle_jobs", {
         method: "POST",
         headers: {
             "Content-Type": "application/json",
@@ -76,40 +74,37 @@ const callDeepLWebSimulation = async (text: string, target: string = 'en'): Prom
             "Accept-Language": "zh-CN,zh;q=0.9",
             "Cache-Control": "no-cache",
             "Pragma": "no-cache",
-            // 模拟浏览器 Fetch
             "Sec-Fetch-Dest": "empty",
             "Sec-Fetch-Mode": "cors",
-            "Sec-Fetch-Site": "same-origin",
-            "Referer": "https://www.deepl.com/translator"
+            "Sec-Fetch-Site": "same-site",
         },
         body: JSON.stringify(payload)
     });
 
     if (response.status === 429) {
-        throw new Error("DeepL 429 频率超限：您的 IP 或请求特征已被 DeepL 标记。建议切换翻译引擎为 'Google' 或等待 1 小时。");
+        throw new Error("DeepL 429 频率超限：您的 IP 已被锁定。请切换网络 IP 或改用 'Google 翻译 (免 Key)'。");
     }
 
     if (!response.ok) {
-        throw new Error(`DeepL 响应异常: ${response.status}`);
+        throw new Error(`DeepL 响应异常: ${response.status} ${response.statusText}`);
     }
 
     const resJson = await response.json();
     if (resJson.error) {
-        // DeepL 特有的错误码处理
-        if (resJson.error.code === -32600) throw new Error("无效的请求指纹，DeepL 算法已更新。");
         throw new Error(`DeepL 错误: ${resJson.error.message || '未知'}`);
     }
 
     const translatedText = resJson.result?.translations?.[0]?.beams?.[0]?.sentences?.[0]?.text;
     if (!translatedText) {
-        throw new Error("无法从 DeepL 获取翻译结果，可能触发布防验证。");
+        // 如果能走到这一步但没有译文，说明触发了人机验证（Captcha）
+        throw new Error("DeepL 需要人机验证：请在浏览器中访问 www.deepl.com 随意翻译一段话完成验证，再回来使用。");
     }
 
     return translatedText;
 };
 
 /**
- * 统一翻译入口
+ * 调用腾讯翻译君 (TMT)
  */
 export const callTencentTranslation = async (engine: TranslationEngine, sourceText: string = 'Hello', target: string = 'en'): Promise<any> => {
   if (!engine.appId || !engine.secretKey) {
@@ -211,9 +206,6 @@ export const callNiuTransTranslation = async (engine: TranslationEngine, sourceT
     return { Response: { TargetText: resJson.tgt_text } };
 };
 
-/**
- * 统一 DeepL 处理逻辑
- */
 export const callDeepLTranslation = async (engine: TranslationEngine, sourceText: string, target: string = 'en'): Promise<any> => {
     if (engine.isWebSimulation || (!engine.apiKey && !engine.isCustom)) {
         const text = await callDeepLWebSimulation(sourceText, target);
@@ -233,12 +225,8 @@ export const callDeepLTranslation = async (engine: TranslationEngine, sourceText
     return { Response: { TargetText: resJson.translations?.[0]?.text || "" } };
 };
 
-/**
- * 统一入口逻辑切换
- */
 export const translateWithEngine = async (engine: TranslationEngine, text: string, target: string = 'en'): Promise<string> => {
     if (!engine.isEnabled) throw new Error("引擎未启用");
-
     try {
         switch (engine.id) {
             case 'tencent': {
@@ -257,7 +245,6 @@ export const translateWithEngine = async (engine: TranslationEngine, text: strin
                 return await callGoogleWebSimulation(text, target);
             }
             default: {
-                // 如果是自定义 AI 引擎或其他
                 return `Simulated: ${text}`;
             }
         }
