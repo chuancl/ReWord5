@@ -147,7 +147,7 @@ export const EnginesSection: React.FC<EnginesSectionProps> = ({ engines, setEngi
                        {engine.id === 'microsoft' && (
                           <div className="col-span-2 text-[11px] text-emerald-600 bg-emerald-50/50 p-3 rounded-lg border border-emerald-100 flex items-start gap-2">
                               <div className="mt-0.5"><Zap className="w-3.5 h-3.5 text-emerald-400 fill-emerald-400" /></div>
-                              <p><b>微软翻译模拟模式：</b>通过模拟 Edge 浏览器内置翻译接口实现，无需 Key 即可使用。</p>
+                              <p><b>微软翻译模拟模式：</b>通过模拟 Bing 官网接口实现，无需 Key 即可使用。</p>
                           </div>
                        )}
 
@@ -197,12 +197,10 @@ export const EnginesSection: React.FC<EnginesSectionProps> = ({ engines, setEngi
                           <>
                              <div className="col-span-2 md:col-span-1">
                                  <label className="text-[10px] text-slate-500 mb-1 block">SecretId</label>
-                                 {/* Fix: removed redundant boolean comparison from en.id === en.id === engine.id */}
                                  <input type="text" placeholder="AKID..." className="px-3 py-2 border border-slate-300 rounded w-full font-mono text-xs" value={engine.appId || ''} onChange={e => setEngines(prev => prev.map(en => en.id === engine.id ? {...en, appId: e.target.value} : en))} />
                              </div>
                              <div className="col-span-2 md:col-span-1">
                                  <label className="text-[10px] text-slate-500 mb-1 block">SecretKey</label>
-                                 {/* Fix: removed redundant boolean comparison from en.id === en.id === engine.id */}
                                  <input type="password" placeholder="Key..." className="px-3 py-2 border border-slate-300 rounded w-full font-mono text-xs" value={engine.secretKey || ''} onChange={e => setEngines(prev => prev.map(en => en.id === engine.id ? {...en, secretKey: e.target.value} : en))} />
                              </div>
                           </>

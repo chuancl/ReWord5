@@ -33,38 +33,42 @@ const callGoogleWebSimulation = async (text: string, target: string = 'en'): Pro
 
 /**
  * 模拟 微软翻译网页版 (Bing Translator)
+ * 修复 401 错误：使用 Bing 官网内部接口而非 Azure 接口
  */
 const callMicrosoftWebSimulation = async (text: string, target: string = 'en'): Promise<string> => {
     const to = target === 'zh' ? 'zh-Hans' : 'en';
-    // Bing 翻译的一个公共 API 镜像端点，适用于轻量级模拟
-    const url = `https://api.cognitive.microsofttranslator.com/translate?api-version=3.0&to=${to}`;
-    
-    // 注意：真正的网页模拟通常需要解析 Bing 首页的 IG/IID 参数
-    // 这里我们先提供一个基于公共镜像或者 Azure 试用结构的模拟逻辑
-    // 如果没有配置 Key，我们尝试一个无需鉴权的 Edge 浏览器内置翻译协议常用路径
+    // 关键修复：使用 Bing 官网的 translatev3 接口
+    const url = `https://www.bing.com/ttranslatev3?isGab=1&showoriginal=1`;
     
     try {
+        const params = new URLSearchParams();
+        params.append('fromLang', 'auto-detect');
+        params.append('to', to);
+        params.append('text', text);
+
         const response = await fetch(url, {
             method: "POST",
             headers: {
-                "Content-Type": "application/json",
-                // 模拟 Edge 浏览器的 User-Agent
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0"
+                "Content-Type": "application/x-www-form-urlencoded",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+                "Referer": "https://www.bing.com/translator",
+                "Origin": "https://www.bing.com"
             },
-            body: JSON.stringify([{ "Text": text }])
+            body: params.toString()
         });
 
-        if (response.status === 401 || response.status === 403) {
-            throw new Error("微软翻译 (Bing) 此模拟端点当前需要 API Key。请在配置中填入 Azure Translator Key 或改用 Google 翻译。");
-        }
-
         if (!response.ok) {
+            if (response.status === 401 || response.status === 403) {
+                throw new Error("微软翻译模拟请求被拒绝。可能是 Bing 增加了频率限制或校验，请尝试更换网络环境。");
+            }
             throw new Error(`微软翻译响应异常: ${response.status}`);
         }
 
         const resJson = await response.json();
+        // Bing 返回的是一个数组 [{ translations: [{ text: "..." }] }]
         return resJson[0]?.translations[0]?.text || "";
     } catch (e: any) {
+        console.error("[Microsoft Simulation Error]", e);
         throw e;
     }
 };
