@@ -2,22 +2,88 @@ import { TranslationEngine } from "../types";
 import { getHash, getHmac, toHex } from './crypto';
 
 /**
- * 模拟 Google 翻译网页版 (免 Key 稳定版)
+ * 模拟 Google 翻译网页版 (免 Key 极稳版)
  */
 const callGoogleWebSimulation = async (text: string, target: string = 'en'): Promise<string> => {
     const targetLang = target === 'zh' ? 'zh-CN' : 'en';
+    // client=gtx 是谷歌翻译在某些集成环境下的专用标识，对扩展非常友好
     const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLang}&dt=t&q=${encodeURIComponent(text)}`;
 
-    const response = await fetch(url);
+    const response = await fetch(url, {
+        method: "GET",
+        headers: {
+            "Accept": "*/*",
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        }
+    });
+
     if (!response.ok) {
         throw new Error(`Google 翻译异常: ${response.status}`);
     }
 
     const resJson = await response.json();
     try {
+        // Google 的返回格式是 [ [[译文, 原文, ...], ...], ... ]
         return resJson[0].map((item: any) => item[0]).join("");
     } catch (e) {
         throw new Error("解析 Google 翻译结果失败");
+    }
+};
+
+/**
+ * 模拟 百度翻译网页版 (免 Key 版)
+ */
+const callBaiduWebSimulation = async (text: string, target: string = 'en'): Promise<string> => {
+    const to = target === 'zh' ? 'zh' : 'en';
+    
+    // 百度网页端通常先通过 langdetect 确认语种
+    const detectUrl = `https://fanyi.baidu.com/langdetect`;
+    let from = 'en';
+    try {
+        const detectRes = await fetch(detectUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+            body: `query=${encodeURIComponent(text.substring(0, 50))}`
+        });
+        const detectJson = await detectRes.json();
+        from = detectJson.lan || 'auto';
+    } catch (e) {
+        from = 'auto';
+    }
+
+    // 百度网页翻译接口 (transapi)
+    const url = `https://fanyi.baidu.com/transapi`;
+    const params = new URLSearchParams({
+        from: from,
+        to: to,
+        query: text,
+        source: 'txt'
+    });
+
+    const response = await fetch(url, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Referer": "https://fanyi.baidu.com/",
+            "User-Agent": "Mozilla/5.0 (iPhone; CPU iPhone OS 13_2_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/13.0.3 Mobile/15E148 Safari/604.1"
+        },
+        body: params.toString()
+    });
+
+    if (!response.ok) {
+        throw new Error(`百度翻译响应异常: ${response.status}`);
+    }
+
+    const resJson = await response.json();
+    if (resJson.error) {
+        throw new Error(`百度翻译错误: ${resJson.error}`);
+    }
+
+    try {
+        // 百度 transapi 返回格式: { data: [{ dst: '译文', src: '原文' }, ...] }
+        return resJson.data.map((item: any) => item.dst).join("\n");
+    } catch (e) {
+        throw new Error("解析百度翻译结果失败");
     }
 };
 
@@ -26,17 +92,12 @@ const callGoogleWebSimulation = async (text: string, target: string = 'en'): Pro
  */
 const callDeepLWebSimulation = async (text: string, target: string = 'en'): Promise<string> => {
     const targetLang = target.toUpperCase() === 'ZH' ? 'ZH' : 'EN';
-    
-    // 生成混淆 ID：DeepL 现在期望一个较大的随机整数
     const id = Math.floor(Math.random() * 100000000);
-    
-    // 核心混淆：统计文本中 'i' 的数量 (DeepL 反爬关键)
     const iCount = (text.split('i').length - 1) + (text.split('I').length - 1);
     
     const getTimeStamp = () => {
         const ts = Date.now();
         if (iCount === 0) return ts;
-        // 修正逻辑：确保 ts - (ts % (iCount + 1)) + (iCount + 1)
         return ts - (ts % (iCount + 1)) + (iCount + 1);
     };
 
@@ -64,8 +125,6 @@ const callDeepLWebSimulation = async (text: string, target: string = 'en'): Prom
         id
     };
 
-    // 使用 www2 子域名。www 主域名会根据 IP 重定向到 /zh/translator，导致 POST 变 GET 报 404
-    // 在 URL 中显式带上 method 参数是 DeepL 某些节点的硬性要求
     const response = await fetch("https://www2.deepl.com/jsonrpc?method=LMT_handle_jobs", {
         method: "POST",
         headers: {
@@ -82,11 +141,11 @@ const callDeepLWebSimulation = async (text: string, target: string = 'en'): Prom
     });
 
     if (response.status === 429) {
-        throw new Error("DeepL 429 频率超限：您的 IP 已被锁定。请切换网络 IP 或改用 'Google 翻译 (免 Key)'。");
+        throw new Error("DeepL 429 频率超限。请改用 'Google' 或 '百度' 翻译。");
     }
 
     if (!response.ok) {
-        throw new Error(`DeepL 响应异常: ${response.status} ${response.statusText}`);
+        throw new Error(`DeepL 响应异常: ${response.status}`);
     }
 
     const resJson = await response.json();
@@ -96,15 +155,14 @@ const callDeepLWebSimulation = async (text: string, target: string = 'en'): Prom
 
     const translatedText = resJson.result?.translations?.[0]?.beams?.[0]?.sentences?.[0]?.text;
     if (!translatedText) {
-        // 如果能走到这一步但没有译文，说明触发了人机验证（Captcha）
-        throw new Error("DeepL 需要人机验证：请在浏览器中访问 www.deepl.com 随意翻译一段话完成验证，再回来使用。");
+        throw new Error("DeepL 需要人机验证：请前往官网完成一次翻译验证后再使用。");
     }
 
     return translatedText;
 };
 
 /**
- * 调用腾讯翻译君 (TMT)
+ * 统一翻译入口
  */
 export const callTencentTranslation = async (engine: TranslationEngine, sourceText: string = 'Hello', target: string = 'en'): Promise<any> => {
   if (!engine.appId || !engine.secretKey) {
@@ -229,6 +287,12 @@ export const translateWithEngine = async (engine: TranslationEngine, text: strin
     if (!engine.isEnabled) throw new Error("引擎未启用");
     try {
         switch (engine.id) {
+            case 'google': {
+                return await callGoogleWebSimulation(text, target);
+            }
+            case 'baidu': {
+                return await callBaiduWebSimulation(text, target);
+            }
             case 'tencent': {
                 const res = await callTencentTranslation(engine, text, target);
                 return res.Response?.TargetText || "";
@@ -240,9 +304,6 @@ export const translateWithEngine = async (engine: TranslationEngine, text: strin
             case 'deepl': {
                 const res = await callDeepLTranslation(engine, text, target);
                 return res.Response?.TargetText || "";
-            }
-            case 'google': {
-                return await callGoogleWebSimulation(text, target);
             }
             default: {
                 return `Simulated: ${text}`;

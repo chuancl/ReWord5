@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { TranslationEngine, EngineType, DictionaryEngine } from '../../types';
 import { Plus, GripVertical, RefreshCw, CheckCircle, WifiOff, Trash2, Globe, BrainCircuit, X, Book, ExternalLink, Zap, AlertCircle } from 'lucide-react';
-import { callTencentTranslation, callNiuTransTranslation, callDeepLTranslation, translateWithEngine } from '../../utils/api';
+import { translateWithEngine } from '../../utils/api';
 import { dictionariesStorage } from '../../utils/storage';
 
 const Tooltip: React.FC<{ text: string; children: React.ReactNode }> = ({ text, children }) => {
@@ -60,7 +60,6 @@ export const EnginesSection: React.FC<EnginesSectionProps> = ({ engines, setEngi
     if (!engine) return;
 
     try {
-      // 使用统一的 translateWithEngine 函数测试
       const testResult = await translateWithEngine(engine, "Hello World", "zh");
       console.log(`[EnginesSection] ${engine.name} test success:`, testResult);
       setEngines(prev => prev.map(e => e.id === id ? { ...e, isTesting: false, testResult: 'success' } : e));
@@ -114,8 +113,8 @@ export const EnginesSection: React.FC<EnginesSectionProps> = ({ engines, setEngi
                   <div className="flex justify-between items-center">
                     <div className="flex items-center gap-2">
                        <span className="font-bold text-slate-800">{engine.name}</span>
-                       <span className={`text-[10px] px-1.5 py-0.5 rounded border ${engine.id === 'google' || engine.isWebSimulation ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : engine.type === 'ai' ? 'bg-purple-50 text-purple-600 border-purple-100' : 'bg-slate-50 text-slate-500 border-slate-100'}`}>
-                           {engine.id === 'google' || engine.isWebSimulation ? 'Web 模拟 (免 Key)' : engine.type === 'ai' ? 'AI Model' : 'Standard API'}
+                       <span className={`text-[10px] px-1.5 py-0.5 rounded border ${engine.id === 'google' || engine.id === 'baidu' || engine.isWebSimulation ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : engine.type === 'ai' ? 'bg-purple-50 text-purple-600 border-purple-100' : 'bg-slate-50 text-slate-500 border-slate-100'}`}>
+                           {engine.id === 'google' || engine.id === 'baidu' || engine.isWebSimulation ? 'Web 模拟 (免 Key)' : engine.type === 'ai' ? 'AI Model' : 'Standard API'}
                        </span>
                     </div>
                     <div className="flex items-center space-x-2">
@@ -152,7 +151,15 @@ export const EnginesSection: React.FC<EnginesSectionProps> = ({ engines, setEngi
                        {engine.id === 'google' && (
                           <div className="col-span-2 text-[11px] text-emerald-600 bg-emerald-50/50 p-3 rounded-lg border border-emerald-100 flex items-start gap-2">
                               <div className="mt-0.5"><CheckCircle className="w-3.5 h-3.5 text-emerald-400" /></div>
-                              <p>Google 网页模拟模式：无需任何配置，即开即用。这是目前最稳定的免 Key 方案，如果 DeepL 出现 429 报错，强烈建议首选此引擎。</p>
+                              <p>Google 网页模拟模式：无需任何配置。这是目前兼容性最好的翻译方案，支持长文本且极度稳定。</p>
+                          </div>
+                       )}
+
+                       {/* 百度专用字段 (免 Key) */}
+                       {engine.id === 'baidu' && (
+                          <div className="col-span-2 text-[11px] text-emerald-600 bg-emerald-50/50 p-3 rounded-lg border border-emerald-100 flex items-start gap-2">
+                              <div className="mt-0.5"><CheckCircle className="w-3.5 h-3.5 text-emerald-400" /></div>
+                              <p>百度网页模拟模式：模拟手机浏览器调用百度翻译。无需 API Key，适合国内网络环境下快速使用。</p>
                           </div>
                        )}
 
@@ -187,7 +194,7 @@ export const EnginesSection: React.FC<EnginesSectionProps> = ({ engines, setEngi
                                     </div>
                                     <div className="flex items-start gap-2 text-[10px] text-amber-600 bg-amber-50/50 p-2 rounded">
                                         <AlertCircle className="w-3 h-3 mt-0.5 shrink-0" />
-                                        <p>注意：DeepL 对网页请求非常敏感，极易触发 429 封禁。如果该引擎失效，请切换至 <b>Google 翻译</b> 引擎，后者更稳定。</p>
+                                        <p>注意：DeepL 对频率限制极严。若失效，请优先切换至 <b>Google</b> 或 <b>百度</b> 翻译。</p>
                                     </div>
                                 </div>
                             )}
