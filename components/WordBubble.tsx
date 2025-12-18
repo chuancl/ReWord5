@@ -53,27 +53,31 @@ export const WordBubble: React.FC<WordBubbleProps> = ({
   }, [isVisible]);
 
   // 核心：自动朗读逻辑，遵循 有道 -> TTS 兜底。
+  // 增加 position 依赖：确保气泡位置计算完成并渲染后才开始朗读，提高浏览器通过音频请求的概率
   useEffect(() => {
       let isMounted = true;
-      if (isVisible && entry && config.autoPronounce && config.autoPronounceCount > 0 && !hasAutoPlayedRef.current) {
-          hasAutoPlayedRef.current = true; // 标记已开始自动播放，防止重复触发
+      if (isVisible && entry && position && config.autoPronounce && config.autoPronounceCount > 0 && !hasAutoPlayedRef.current) {
+          hasAutoPlayedRef.current = true; // 立即标记，防止在异步循环中重复触发
+          
+          const wordToPlay = entry.text; // 闭包捕获
+          
           (async () => {
              for(let i = 0; i < config.autoPronounceCount; i++) {
-                 // 每次循环前检查气泡是否还在或组件是否已卸载
+                 // 每次循环检查环境
                  if (!isMounted || !isVisible) break;
                  
-                 // 调用 playWordAudio 实现智能发音逻辑
-                 await playWordAudio(entry.text, config.autoPronounceAccent, ttsSpeed);
+                 // 调用封装好的智能朗读函数
+                 await playWordAudio(wordToPlay, config.autoPronounceAccent, ttsSpeed);
                  
-                 // 如果需要播放多次，在两次之间留出 300ms 间隔，提高听感
+                 // 朗读间隔
                  if (i < config.autoPronounceCount - 1 && isMounted && isVisible) {
-                    await new Promise(r => setTimeout(r, 300));
+                    await new Promise(r => setTimeout(r, 400));
                  }
              }
           })();
       }
       return () => { isMounted = false; };
-  }, [isVisible, entry?.id, config.autoPronounce, config.autoPronounceCount, config.autoPronounceAccent, ttsSpeed]);
+  }, [isVisible, entry?.id, !!position, config.autoPronounce, config.autoPronounceCount, config.autoPronounceAccent, ttsSpeed]);
 
   const handleAdd = (e: React.MouseEvent) => {
       e.stopPropagation();

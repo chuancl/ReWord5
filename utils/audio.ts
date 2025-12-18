@@ -1,10 +1,9 @@
-
 let cachedVoices: SpeechSynthesisVoice[] = [];
 let isLoaded = false;
-let currentAudio: HTMLAudioElement | null = null; // Track currently playing HTML5 Audio
+let currentAudio: HTMLAudioElement | null = null; // 追踪当前播放的 HTML5 Audio
 
 /**
- * Preloads voices as early as possible.
+ * 尽早加载 TTS 语音包
  */
 export const preloadVoices = () => {
   const synth = window.speechSynthesis;
@@ -22,21 +21,25 @@ export const preloadVoices = () => {
 };
 
 /**
- * Stops all currently playing audio (TTS and HTML5 Audio).
+ * 停止所有正在播放的音频 (TTS 和 HTML5 音频)
  */
 export const stopAudio = () => {
-  // 1. Stop TTS
+  // 1. 停止 TTS
   const synth = window.speechSynthesis;
   synth.cancel();
   
-  // 2. Stop HTML5 Audio
+  // 2. 停止 HTML5 音频
   if (currentAudio) {
       currentAudio.pause();
-      currentAudio.currentTime = 0; // Reset position
+      currentAudio.src = ""; // 彻底释放资源
+      currentAudio.load();
       currentAudio = null;
   }
 };
 
+/**
+ * 用户交互后调用，解锁浏览器的音频限制
+ */
 export const unlockAudio = () => {
     const synth = window.speechSynthesis;
     if (synth.paused) synth.resume();
@@ -61,16 +64,14 @@ const waitForVoices = (): Promise<SpeechSynthesisVoice[]> => {
 };
 
 /**
- * Plays arbitrary URL audio with a promise wrapper.
- * Stops any previously playing audio.
+ * 播放 URL 音频。
+ * 增加了对浏览器 Autoplay 限制的检测。
  */
 export const playUrl = (url: string, playbackRate: number = 1.0): Promise<void> => {
-    stopAudio(); // Stop overlapping audio
-
+    // 这里不再内部直接调用 stopAudio() 以免死循环，由外部逻辑控制
     return new Promise((resolve, reject) => {
         const audio = new Audio(url);
-        currentAudio = audio; // Register as current
-        
+        currentAudio = audio;
         audio.playbackRate = playbackRate;
         
         audio.onended = () => {
@@ -80,13 +81,16 @@ export const playUrl = (url: string, playbackRate: number = 1.0): Promise<void> 
         
         audio.onerror = (e) => {
             if (currentAudio === audio) currentAudio = null;
-            reject(e);
+            reject(new Error("Audio load failed"));
         };
         
         const playPromise = audio.play();
         if (playPromise !== undefined) {
-            playPromise.catch(error => {
+            playPromise.then(() => {
+                // 播放成功
+            }).catch(error => {
                 if (currentAudio === audio) currentAudio = null;
+                // 通常是 NotAllowedError，意味着自动播放被拦截
                 reject(error);
             });
         }
@@ -94,11 +98,11 @@ export const playUrl = (url: string, playbackRate: number = 1.0): Promise<void> 
 };
 
 /**
- * Standard Browser TTS (Fallback)
+ * 标准浏览器 TTS 兜底播放
  */
 export const playTextToSpeech = async (text: string, accent: 'US' | 'UK' = 'US', rate: number = 1.0, repeat: number = 1) => {
   if (!text || repeat <= 0) return;
-  stopAudio(); // Ensure other audio stops
+  stopAudio();
 
   const synth = window.speechSynthesis;
   if (synth.paused) synth.resume();
@@ -123,27 +127,34 @@ export const playTextToSpeech = async (text: string, accent: 'US' | 'UK' = 'US',
 };
 
 /**
- * Smart Audio Player: Youdao Online Stream -> TTS Fallback
+ * 核心：智能单词发音播放器
+ * 策略：有道词典在线音频优先 -> TTS 兜底
  */
 export const playWordAudio = async (text: string, accent: 'US' | 'UK' = 'US', speed: number = 1.0) => {
     if (!text) return;
     
-    // Type 1 = UK, Type 2 = US (Youdao convention)
+    // 强制停止当前正在进行的任何播放，确保发音清晰
+    stopAudio();
+
+    // Type 1 = UK, Type 2 = US (有道词典约定)
     const type = accent === 'UK' ? 1 : 2;
-    const url = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(text)}&type=${type}`;
+    // 增加 timestamp 避免缓存导致的播放失效
+    const url = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(text)}&type=${type}&t=${Date.now()}`;
 
     try {
         await playUrl(url, speed);
     } catch (e) {
-        console.warn(`Online audio failed for ${text}, falling back to TTS`, e);
-        playTextToSpeech(text, accent, speed);
+        // 如果在线音频因为自动播放策略被拦截或网络失败，则使用 TTS 兜底
+        console.warn(`[ContextLingo] 在线读音不可用或被浏览器拦截: ${text}`, e);
+        await playTextToSpeech(text, accent, speed);
     }
 };
 
 /**
- * Smart Sentence Player.
+ * 智能例句朗读
  */
 export const playSentenceAudio = async (text: string, explicitUrl?: string, accent: 'US' | 'UK' = 'US', speed: number = 1.0) => {
+    stopAudio();
     if (explicitUrl) {
         try {
             await playUrl(explicitUrl, speed);
@@ -151,9 +162,8 @@ export const playSentenceAudio = async (text: string, explicitUrl?: string, acce
         } catch(e) { console.warn("Explicit URL failed"); }
     }
 
-    // Try Youdao for sentences
     const type = accent === 'UK' ? 1 : 2;
-    const url = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(text)}&type=${type}`;
+    const url = `https://dict.youdao.com/dictvoice?audio=${encodeURIComponent(text)}&type=${type}&t=${Date.now()}`;
     
     try {
         await playUrl(url, speed);
