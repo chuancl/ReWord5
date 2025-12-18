@@ -84,6 +84,7 @@ export const VisualStylesSection: React.FC<VisualStylesSectionProps> = ({ styles
 
     // Helper to build styles with overrides for Base alignment
     const getStyle = (config: StyleConfig, isBase: boolean): React.CSSProperties => {
+        // 使用对象展开语法来构建样式，避免直接修改 React.CSSProperties 对象属性可能导致的 TS 类型错误
         const baseStyles: React.CSSProperties = {
             color: config.color,
             backgroundColor: config.backgroundColor,
@@ -100,11 +101,17 @@ export const VisualStylesSection: React.FC<VisualStylesSectionProps> = ({ styles
             if (isBase) {
                 // Base element: Use normal line-height to align with text.
                 // Do NOT force fontSize='100%', let user config take precedence.
-                baseStyles.lineHeight = 'normal';
-                baseStyles.verticalAlign = 'baseline';
+                return {
+                    ...baseStyles,
+                    lineHeight: 'normal',
+                    verticalAlign: 'baseline',
+                };
             } else {
                 // RT is compact
-                baseStyles.lineHeight = '1';
+                return {
+                    ...baseStyles,
+                    lineHeight: '1',
+                };
             }
         }
 

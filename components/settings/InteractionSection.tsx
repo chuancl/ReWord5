@@ -1,8 +1,8 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { WordInteractionConfig, InteractionTrigger, ModifierKey, MouseAction, BubblePosition } from '../../types';
-import { Volume2, Info, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Plus, ExternalLink } from 'lucide-react';
+import { Volume2, Info, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Plus, ExternalLink, BookOpen } from 'lucide-react';
 import { playTextToSpeech } from '../../utils/audio';
+import { browser } from 'wxt/browser';
 
 const Tooltip: React.FC<{ text: string; children: React.ReactNode }> = ({ text, children }) => {
   return (
@@ -122,7 +122,6 @@ export const InteractionSection: React.FC<InteractionSectionProps> = ({ config, 
       const { modifier } = config.mainTrigger;
       
       const domModifier = getDomModifier(modifier);
-      // Casting to any to satisfy React's strict ModifierKey type for getModifierState
       const isModifierMatch = !domModifier || e.getModifierState(domModifier as any);
 
       if (!isModifierMatch) return;
@@ -140,17 +139,14 @@ export const InteractionSection: React.FC<InteractionSectionProps> = ({ config, 
   };
 
   const onMouseEnter = (e: React.MouseEvent) => {
-      // Clear any pending hide
       if (hideTimer.current) {
           clearTimeout(hideTimer.current);
           hideTimer.current = null;
       }
 
       if (config.mainTrigger.action === 'Hover') {
-         // Check modifier if needed (though hover usually implies none or checked during move)
          const { modifier } = config.mainTrigger;
          const domModifier = getDomModifier(modifier);
-         // Casting to any to satisfy React's strict ModifierKey type for getModifierState
          if (domModifier && !e.getModifierState(domModifier as any)) return;
 
          if (showTimer.current) clearTimeout(showTimer.current);
@@ -166,7 +162,6 @@ export const InteractionSection: React.FC<InteractionSectionProps> = ({ config, 
           showTimer.current = null;
       }
       
-      // Delay hiding using configured delay
       if (hideTimer.current) clearTimeout(hideTimer.current);
       hideTimer.current = setTimeout(() => {
           setIsPreviewVisible(false);
@@ -187,8 +182,15 @@ export const InteractionSection: React.FC<InteractionSectionProps> = ({ config, 
       }, config.dismissDelay || 300);
   };
 
-  // --- Layout & Styles ---
+  // --- Actions ---
+  const openDetailPreview = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      // 使用 wxt 提供的 getURL 动态生成路径，避免硬编码 ID
+      const url = browser.runtime.getURL('/options.html?view=word-detail&word=ephemeral');
+      window.open(url, '_blank');
+  };
 
+  // --- Layout & Styles ---
   const getPreviewPositionClass = (pos: BubblePosition) => {
      switch(pos) {
          case 'top': return 'bottom-full left-1/2 -translate-x-1/2 mb-3';
@@ -209,11 +211,7 @@ export const InteractionSection: React.FC<InteractionSectionProps> = ({ config, 
      }
   };
 
-  // Shift the word to make room for the bubble in the preview container
   const getWordShiftClass = (pos: BubblePosition) => {
-      // If bubble is LEFT, move word RIGHT (translate-x).
-      // If bubble is RIGHT, move word LEFT (-translate-x).
-      // Use larger values to ensure bubble doesn't get clipped by overflow:hidden if container had it (though here it's flex)
       switch(pos) {
           case 'left': return 'translate-x-24';
           case 'right': return '-translate-x-24';
@@ -264,7 +262,6 @@ export const InteractionSection: React.FC<InteractionSectionProps> = ({ config, 
                     onChange={(val) => setConfig({...config, quickAddTrigger: val})}
                 />
 
-                {/* Auto Pronounce Settings */}
                 <div className="bg-slate-50 p-4 rounded-lg border border-slate-100">
                    <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-3 block">自动朗读设置</label>
                    <div className="flex gap-4 items-end">
@@ -318,7 +315,6 @@ export const InteractionSection: React.FC<InteractionSectionProps> = ({ config, 
                     </label>
                   </div>
                   
-                  {/* Dismiss Delay & Multiple Bubbles */}
                   <div className="mt-4 grid grid-cols-2 gap-4">
                       <div className="p-3 border rounded-lg bg-slate-50">
                           <label className="text-[10px] text-slate-500 block mb-1">气泡消失延迟 (ms)</label>
@@ -339,7 +335,6 @@ export const InteractionSection: React.FC<InteractionSectionProps> = ({ config, 
                       </div>
                   </div>
 
-                  {/* Online Dict Link Config */}
                   <div className="mt-4 bg-slate-50 p-4 rounded-lg border border-slate-100">
                       <label className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2 block">在线词典链接 (URL Template)</label>
                       <input 
@@ -432,21 +427,30 @@ export const InteractionSection: React.FC<InteractionSectionProps> = ({ config, 
                                 </div>
                             )}
 
-                            {/* Online Dict Link (Preview) */}
-                            {config.onlineDictUrl && (
-                                <div className="mt-3 pt-3 border-t border-slate-100 text-[11px]">
+                            {/* Link Container (Detail & Online Dict) */}
+                            <div className="mt-3 pt-3 border-t border-slate-100 flex gap-4">
+                                <button 
+                                    onClick={openDetailPreview}
+                                    className="flex items-center text-[11px] text-slate-500 hover:text-blue-600 transition-colors"
+                                    title="查看详细释义、词源、例句等"
+                                >
+                                    <BookOpen className="w-3 h-3 mr-1.5" />
+                                    详细信息
+                                </button>
+
+                                {config.onlineDictUrl && (
                                     <a 
                                         href={config.onlineDictUrl.replace('{word}', 'ephemeral')} 
                                         target="_blank" 
                                         rel="noopener noreferrer" 
-                                        className="flex items-center text-slate-500 hover:text-blue-600 transition-colors"
+                                        className="flex items-center text-[11px] text-slate-500 hover:text-blue-600 transition-colors"
                                         onClick={(e) => e.stopPropagation()}
                                     >
                                         <ExternalLink className="w-3 h-3 mr-1.5" />
-                                        查看在线词典详情
+                                        在线词典
                                     </a>
-                                </div>
-                            )}
+                                )}
+                            </div>
                         </div>
                     )}
                  </div>
