@@ -24,7 +24,7 @@ interface WidgetWindowProps {
     handleConfigDragOver: (e: React.DragEvent, idx: number) => void;
     handleConfigDragEnd: () => void;
     draggedConfigIndex: number | null;
-    onOpenDetail?: (word: string) => void; // 用于触发跳转
+    onOpenDetail?: (word: string) => void;
 }
 
 export const WidgetWindow: React.FC<WidgetWindowProps> = ({
@@ -46,7 +46,6 @@ export const WidgetWindow: React.FC<WidgetWindowProps> = ({
 
     const isAllSelected = filteredWords.length > 0 && filteredWords.every(w => selectedWordIds.has(w.id));
 
-    // Handle Export logic internal to the widget for convenience
     const handleExport = () => {
         const blob = new Blob([JSON.stringify(filteredWords, null, 2)], { type: 'application/json' });
         const url = URL.createObjectURL(blob);
@@ -72,7 +71,7 @@ export const WidgetWindow: React.FC<WidgetWindowProps> = ({
                boxShadow: '0 20px 60px -10px rgba(0, 0, 0, 0.3)'
             }}
          >
-            {/* 1. Header (Draggable) */}
+            {/* Header */}
             <div 
                 className="flex items-center justify-between px-5 py-4 bg-white border-b border-slate-100 cursor-grab active:cursor-grabbing select-none shrink-0"
                 onMouseDown={onMouseDownHeader}
@@ -97,16 +96,14 @@ export const WidgetWindow: React.FC<WidgetWindowProps> = ({
                </div>
             </div>
 
-            {/* 2. Inline Config Panel (Conditional) */}
+            {/* Config Panel */}
             {isConfigOpen && (
-               <div className="bg-slate-50 border-b border-slate-200 p-5 animate-in slide-in-from-top-2 shrink-0 space-y-5">
+               <div className="bg-slate-50 border-b border-slate-200 p-5 shrink-0 space-y-5">
                    <div className="flex justify-between items-center">
                         <h3 className="text-sm font-bold text-slate-800">卡片显示配置</h3>
                         <button onClick={() => setIsConfigOpen(false)} className="text-xs text-slate-400 hover:text-slate-600">收起</button>
                    </div>
-                   
                    <div className="grid grid-cols-2 gap-8">
-                        {/* Fixed Content Column */}
                         <div>
                             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-3">固定内容</span>
                             <div className="space-y-2">
@@ -144,8 +141,6 @@ export const WidgetWindow: React.FC<WidgetWindowProps> = ({
                                 </label>
                             </div>
                         </div>
-
-                        {/* Logic & Sorting Column */}
                         <div>
                             <span className="text-xs font-bold text-slate-400 uppercase tracking-wider block mb-3">例句逻辑与排序</span>
                             <div className="space-y-3">
@@ -153,31 +148,12 @@ export const WidgetWindow: React.FC<WidgetWindowProps> = ({
                                     <input type="checkbox" checked={config.showMultiExamples} onChange={() => updateSetting(p => ({...p, showMultiExamples: !p.showMultiExamples}))} className="rounded text-blue-600 focus:ring-blue-500 border-slate-300" /> 
                                     <span className="ml-2 text-sm text-slate-700 font-medium">显示所有例句 (不折叠)</span>
                                 </label>
-                                
                                 <div className="space-y-2">
                                     {config.cardDisplay.map((item, index) => (
-                                        <div 
-                                            key={item.id}
-                                            draggable
-                                            onDragStart={() => handleConfigDragStart(index)}
-                                            onDragOver={(e) => handleConfigDragOver(e, index)}
-                                            onDragEnd={handleConfigDragEnd}
-                                            className={`flex items-center p-2 bg-white border rounded-lg cursor-move hover:border-blue-400 transition ${draggedConfigIndex === index ? 'opacity-50 border-blue-400 border-dashed' : 'border-slate-200 shadow-sm'}`}
-                                        >
+                                        <div key={item.id} draggable onDragStart={() => handleConfigDragStart(index)} onDragOver={(e) => handleConfigDragOver(e, index)} onDragEnd={handleConfigDragEnd} className={`flex items-center p-2 bg-white border rounded-lg cursor-move hover:border-blue-400 transition ${draggedConfigIndex === index ? 'opacity-50 border-blue-400 border-dashed' : 'border-slate-200 shadow-sm'}`}>
                                             <GripVertical className="w-4 h-4 text-slate-400 mr-2" />
                                             <span className="text-xs text-slate-700 flex-1">{item.label}</span>
-                                            <input 
-                                                type="checkbox" 
-                                                checked={item.enabled} 
-                                                onChange={() => {
-                                                    updateSetting(p => {
-                                                        const newDisplay = [...p.cardDisplay];
-                                                        newDisplay[index].enabled = !newDisplay[index].enabled;
-                                                        return {...p, cardDisplay: newDisplay};
-                                                    });
-                                                }} 
-                                                className="rounded text-blue-600 border-slate-300" 
-                                            /> 
+                                            <input type="checkbox" checked={item.enabled} onChange={() => { updateSetting(p => { const newDisplay = [...p.cardDisplay]; newDisplay[index].enabled = !newDisplay[index].enabled; return {...p, cardDisplay: newDisplay}; }); }} className="rounded text-blue-600 border-slate-300" /> 
                                         </div>
                                     ))}
                                 </div>
@@ -187,57 +163,32 @@ export const WidgetWindow: React.FC<WidgetWindowProps> = ({
                </div>
             )}
             
-            {/* 3. Tabs & Actions */}
+            {/* Tabs & Actions */}
             <div className="px-5 py-3 border-b border-slate-100 bg-white flex flex-col gap-3 shrink-0">
-               {/* Tabs */}
                <div className="flex gap-2">
                   {availableTabs.map(tab => (
-                     <button
-                        key={tab}
-                        onClick={() => setActiveTab(tab)}
-                        className={`px-4 py-1.5 text-sm font-medium rounded-full transition-all ${
-                           activeTab === tab 
-                           ? 'bg-blue-600 text-white shadow-md shadow-blue-200' 
-                           : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                        }`}
-                     >
-                        {getTabLabel(tab)}
-                     </button>
+                     <button key={tab} onClick={() => setActiveTab(tab)} className={`px-4 py-1.5 text-sm font-medium rounded-full transition-all ${activeTab === tab ? 'bg-blue-600 text-white shadow-md shadow-blue-200' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>{getTabLabel(tab)}</button>
                   ))}
                </div>
-               
-               {/* Toolbar */}
                <div className="flex items-center justify-between pt-1">
-                   <button 
-                      onClick={toggleSelectAll} 
-                      className="flex items-center text-xs font-bold text-slate-600 hover:text-slate-900 select-none"
-                   >
+                   <button onClick={toggleSelectAll} className="flex items-center text-xs font-bold text-slate-600 hover:text-slate-900 select-none">
                       {isAllSelected ? <CheckSquare className="w-4 h-4 mr-1.5 text-blue-600"/> : <Square className="w-4 h-4 mr-1.5 text-slate-400"/>}
                       全选 ({filteredWords.length})
                    </button>
-                   
                    <div className="flex items-center gap-2">
                         {selectedWordIds.size > 0 && (
-                            <button 
-                                onClick={handleBatchSetToLearning}
-                                className="flex items-center px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 border border-blue-100 text-xs font-medium transition animate-in slide-in-from-right-2 fade-in"
-                            >
+                            <button onClick={handleBatchSetToLearning} className="flex items-center px-3 py-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 border border-blue-100 text-xs font-medium transition animate-in slide-in-from-right-2 fade-in">
                                 <svg className="w-3.5 h-3.5 mr-1.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1-2.5-2.5Z"/><path d="M8 7h6"/><path d="M8 11h8"/></svg> 添加到正在学
                             </button>
                         )}
-                        
-                        <button 
-                            onClick={handleExport}
-                            className="flex items-center px-3 py-1.5 bg-white text-slate-500 rounded-lg hover:bg-slate-50 border border-slate-200 text-xs transition"
-                            title="导出当前列表"
-                        >
+                        <button onClick={handleExport} className="flex items-center px-3 py-1.5 bg-white text-slate-500 rounded-lg hover:bg-slate-50 border border-slate-200 text-xs transition" title="导出当前列表">
                             <Download className="w-3.5 h-3.5 mr-1.5" /> 导出
                         </button>
                    </div>
                </div>
             </div>
 
-            {/* 4. Content List */}
+            {/* List */}
             <div className="flex-1 overflow-y-auto p-4 bg-slate-50/50 space-y-4 custom-scrollbar">
                {filteredWords.length === 0 ? (
                   <div className="flex flex-col items-center justify-center h-full text-slate-400 py-10">
@@ -246,86 +197,58 @@ export const WidgetWindow: React.FC<WidgetWindowProps> = ({
                   </div>
                ) : (
                  filteredWords.map(word => (
-                     <div 
-                        key={word.id} 
-                        className={`bg-white p-4 rounded-xl border shadow-sm transition-all relative group ${
-                           selectedWordIds.has(word.id) ? 'border-blue-400 shadow-md ring-1 ring-blue-100' : 'border-slate-200 hover:border-blue-300'
-                        }`}
-                     >
+                     <div key={word.id} className={`bg-white p-4 rounded-xl border shadow-sm transition-all relative group ${selectedWordIds.has(word.id) ? 'border-blue-400 shadow-md ring-1 ring-blue-100' : 'border-slate-200 hover:border-blue-300'}`}>
                         <div className="flex gap-4">
-                           {/* Checkbox Column */}
                            <div className="pt-1">
-                              <div 
-                                onClick={() => toggleSelectWord(word.id)}
-                                className={`w-5 h-5 rounded border cursor-pointer flex items-center justify-center transition-colors ${
-                                   selectedWordIds.has(word.id) ? 'bg-blue-600 border-blue-600' : 'bg-white border-slate-300 hover:border-blue-400'
-                                }`}
-                              >
+                              <div onClick={() => toggleSelectWord(word.id)} className={`w-5 h-5 rounded border cursor-pointer flex items-center justify-center transition-colors ${selectedWordIds.has(word.id) ? 'bg-blue-600 border-blue-600' : 'bg-white border-slate-300 hover:border-blue-400'}`}>
                                  {selectedWordIds.has(word.id) && <svg className="w-3.5 h-3.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>}
                               </div>
                            </div>
-
-                           {/* Content Column */}
                            <div className="flex-1 min-w-0">
-                                {/* Word Header */}
                                 <div className="flex justify-between items-start mb-3">
                                     <div className="flex flex-col gap-1.5 w-full">
                                         <div className="flex items-center gap-3 flex-wrap">
-                                            {/* 单词标题：点击跳转详情在新标签页 */}
+                                            {/* 单词标题：点击跳转详情，确保样式和交互在 Shadow DOM 生效 */}
                                             <h3 
-                                                className="font-bold text-xl text-slate-800 m-0 cursor-pointer hover:text-blue-600 hover:underline decoration-blue-200 transition-all select-none"
-                                                onClick={(e) => { e.stopPropagation(); onOpenDetail?.(word.text); }}
+                                                className="font-bold text-xl text-slate-800 m-0 cursor-pointer hover:text-blue-600 hover:underline decoration-blue-200 transition-all select-none pointer-events-auto z-10"
+                                                style={{ display: 'inline-block' }}
+                                                onClick={(e) => { 
+                                                    e.preventDefault();
+                                                    e.stopPropagation(); 
+                                                    onOpenDetail?.(word.text); 
+                                                }}
                                                 title="在新标签页查看详细信息"
                                             >
                                                 {word.text}
                                             </h3>
-                                            
                                             {config.showPartOfSpeech && word.partOfSpeech && (
                                                 <span className="font-serif font-bold text-xs text-slate-400 bg-slate-50 rounded px-1.5 py-0.5 border border-slate-100">{word.partOfSpeech}</span>
                                             )}
-
                                             {config.showPhonetic && (word.phoneticUs || word.phoneticUk) && (
                                                 <div className="flex items-center text-xs text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 font-mono">
                                                     {word.phoneticUs && (
-                                                        <span 
-                                                            className="flex items-center cursor-pointer hover:text-blue-600 transition select-none mr-2"
-                                                            onClick={(e) => { e.stopPropagation(); playTextToSpeech(word.text, 'US'); }}
-                                                        >
-                                                            <span className="text-[10px] text-slate-400 mr-1 font-sans">US</span> 
-                                                            {word.phoneticUs}
-                                                            <PlayCircle className="w-3 h-3 ml-1.5 opacity-50 hover:opacity-100"/>
+                                                        <span className="flex items-center cursor-pointer hover:text-blue-600 transition select-none mr-2" onClick={(e) => { e.stopPropagation(); playTextToSpeech(word.text, 'US'); }}>
+                                                            <span className="text-[10px] text-slate-400 mr-1 font-sans">US</span> {word.phoneticUs} <PlayCircle className="w-3 h-3 ml-1.5 opacity-50 hover:opacity-100"/>
                                                         </span>
                                                     )}
                                                     {word.phoneticUk && (
-                                                        <span 
-                                                            className="flex items-center cursor-pointer hover:text-blue-600 transition select-none"
-                                                            onClick={(e) => { e.stopPropagation(); playTextToSpeech(word.text, 'UK'); }}
-                                                        >
-                                                            <span className="text-[10px] text-slate-400 mr-1 font-sans">UK</span> 
-                                                            {word.phoneticUk}
-                                                            <PlayCircle className="w-3 h-3 ml-1.5 opacity-50 hover:opacity-100"/>
+                                                        <span className="flex items-center cursor-pointer hover:text-blue-600 transition select-none" onClick={(e) => { e.stopPropagation(); playTextToSpeech(word.text, 'UK'); }}>
+                                                            <span className="text-[10px] text-slate-400 mr-1 font-sans">UK</span> {word.phoneticUk} <PlayCircle className="w-3 h-3 ml-1.5 opacity-50 hover:opacity-100"/>
                                                         </span>
                                                     )}
                                                 </div>
                                             )}
                                         </div>
-                                        
                                         {config.showMeaning && (
                                             <div className="text-sm text-amber-900 bg-amber-50 px-2 py-0.5 rounded border border-amber-100 font-medium self-start">
                                                 {word.translation}
                                             </div>
                                         )}
                                     </div>
-                                    
                                     <div className="flex flex-col items-end gap-1.5 min-w-[60px]">
-                                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide border whitespace-nowrap ${
-                                            word.category === WordCategory.KnownWord ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : 
-                                            word.category === WordCategory.LearningWord ? 'bg-red-50 text-red-600 border-red-100' :
-                                            'bg-amber-50 text-amber-600 border-amber-100'
-                                        }`}>
+                                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wide border whitespace-nowrap ${word.category === WordCategory.KnownWord ? 'bg-emerald-50 text-emerald-600 border-emerald-100' : word.category === WordCategory.LearningWord ? 'bg-red-50 text-red-600 border-red-100' : 'bg-amber-50 text-amber-600 border-amber-100'}`}>
                                             {word.category === WordCategory.KnownWord ? '已掌握' : word.category === WordCategory.LearningWord ? '正在学' : '想学习'}
                                         </span>
-
                                         {config.showTags && word.tags && word.tags.length > 0 && (
                                             <div className="flex flex-wrap gap-1 justify-end">
                                                 {word.tags.slice(0, 2).map(tag => (
@@ -334,7 +257,6 @@ export const WidgetWindow: React.FC<WidgetWindowProps> = ({
                                                 {word.tags.length > 2 && <span className="text-[10px] text-slate-400">+{word.tags.length - 2}</span>}
                                             </div>
                                         )}
-                                        
                                         <div className="flex gap-2 text-[10px] text-slate-400">
                                             {config.showImportance && word.importance ? (
                                                 <div className="flex">
@@ -351,13 +273,9 @@ export const WidgetWindow: React.FC<WidgetWindowProps> = ({
                                         </div>
                                     </div>
                                 </div>
-                                
-                                {/* Dynamic Card Body based on Config */}
                                 <div className="space-y-2.5">
                                     {config.cardDisplay.map(item => {
                                         if(!item.enabled) return null;
-                                        
-                                        // Context Sentence
                                         if(item.id === 'context' && word.contextSentence) return (
                                             <div key="ctx" className="bg-slate-50 p-3 rounded-lg border border-slate-100 relative group/line">
                                                 <div className="absolute left-0 top-3 bottom-3 w-1 bg-blue-500 rounded-r"></div>
@@ -371,8 +289,6 @@ export const WidgetWindow: React.FC<WidgetWindowProps> = ({
                                                 </div>
                                             </div>
                                         )
-                                        
-                                        // Mixed Sentence
                                         if(item.id === 'mixed' && word.mixedSentence) return (
                                              <div key="mix" className="bg-slate-50 p-3 rounded-lg border border-slate-100 relative">
                                                 <div className="absolute left-0 top-3 bottom-3 w-1 bg-purple-500 rounded-r"></div>
@@ -380,8 +296,6 @@ export const WidgetWindow: React.FC<WidgetWindowProps> = ({
                                                 <p className="text-sm text-slate-700 leading-relaxed pl-3">{word.mixedSentence}</p>
                                             </div>
                                         )
-                                        
-                                        // Dictionary Example
                                         if(item.id === 'dictExample' && word.dictionaryExample) return (
                                             <div key="dict" className="bg-slate-50 p-3 rounded-lg border border-slate-100 relative">
                                                 <div className="absolute left-0 top-3 bottom-3 w-1 bg-emerald-500 rounded-r"></div>
@@ -402,16 +316,9 @@ export const WidgetWindow: React.FC<WidgetWindowProps> = ({
                )}
             </div>
             
-            {/* 5. Resize Handle */}
-            <div 
-               className="absolute bottom-0 right-0 w-6 h-6 cursor-nwse-resize flex items-center justify-center text-slate-300 hover:text-blue-500 transition-colors z-50 rounded-tl-lg hover:bg-slate-50"
-               onMouseDown={onMouseDownResize}
-            >
-               <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21 15v6" />
-                  <path d="M15 21h6" />
-                  <path d="M21 21l-9-9" />
-               </svg>
+            {/* Resize Handle */}
+            <div className="absolute bottom-0 right-0 w-6 h-6 cursor-nwse-resize flex items-center justify-center text-slate-300 hover:text-blue-500 transition-colors z-50 rounded-tl-lg hover:bg-slate-50" onMouseDown={onMouseDownResize}>
+               <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" strokeWidth="2" fill="none" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v6" /><path d="M15 21h6" /><path d="M21 21l-9-9" /></svg>
             </div>
          </div>
     );

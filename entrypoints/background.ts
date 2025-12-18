@@ -1,6 +1,6 @@
 import { defineBackground } from 'wxt/sandbox';
 import { browser } from 'wxt/browser';
-import { callTencentTranslation } from '../utils/api';
+import { callTencentTranslation, callNiuTransTranslation, callDeepLTranslation } from '../utils/api';
 import { dictionariesStorage } from '../utils/storage';
 import { RichDictionaryResult, DictionaryMeaningCard, PhraseItem, SynonymItem } from '../types';
 
@@ -29,27 +29,12 @@ export default defineBackground(() => {
       if (input === null || input === undefined) return '';
       if (typeof input === 'string') return input;
       if (typeof input === 'number') return String(input);
-      
-      // If it's an object, try to extract known text-bearing properties
       if (typeof input === 'object') {
-          const candidates = [
-              input.value, 
-              input.text, 
-              input.word, 
-              input.headword, 
-              input.tran,
-              input.translation,
-              input.def,
-              input.content,
-              input.sentOrig,
-              input.sentTrans,
-              input.examType,
-              input.i // Youdao weird structure often has value in 'i'
-          ];
+          const candidates = [input.value, input.text, input.word, input.headword, input.tran, input.translation, input.def, input.content, input.sentOrig, input.sentTrans, input.examType, input.i];
           for (const c of candidates) {
               if (c && (typeof c === 'string' || typeof c === 'number')) return String(c);
           }
-          return ''; // Discard unknown objects
+          return '';
       }
       return '';
   };
@@ -64,10 +49,7 @@ export default defineBackground(() => {
       return forms.map(f => safeString(f)).filter(f => f.trim().length > 0);
   };
 
-  // --- 2. Deep Parse Youdao JSON ---
   const parseYoudaoDeep = (data: any): RichDictionaryResult => {
-      
-      // 1. Phonetics
       let phoneticUs = "";
       let phoneticUk = "";
       const simpleWord = data.simple?.word?.[0];
@@ -85,7 +67,6 @@ export default defineBackground(() => {
           phoneticUk = uk ? `/${uk}/` : '';
       }
 
-      // 2. Public Info: Inflections
       let inflections: string[] = [];
       if (data.collins_primary?.words?.indexforms) {
            inflections = normalizeForms(data.collins_primary.words.indexforms);
@@ -99,12 +80,10 @@ export default defineBackground(() => {
            });
       }
 
-      // 3. Phrases (phrs)
       const phrases: PhraseItem[] = [];
       if (data.phrs?.phrs && Array.isArray(data.phrs.phrs)) {
           data.phrs.phrs.forEach((item: any) => {
               const text = safeString(item.phr?.headword?.l?.i);
-              
               const transList: string[] = [];
               if (item.phr?.trs && Array.isArray(item.phr.trs)) {
                   item.phr.trs.forEach((t: any) => {
@@ -113,14 +92,10 @@ export default defineBackground(() => {
                   });
               }
               const trans = transList.join('; ');
-
-              if (text && trans) {
-                  phrases.push({ text, trans });
-              }
+              if (text && trans) phrases.push({ text, trans });
           });
       }
 
-      // 4. Roots (rel_word)
       const roots: { root: string; words: { text: string; trans: string }[] }[] = [];
       if (data.rel_word?.rels) {
           data.rel_word.rels.forEach((rel: any) => {
@@ -132,30 +107,23 @@ export default defineBackground(() => {
                        if (text && trans) rootWords.push({ text, trans });
                    });
               }
-              if (rootWords.length > 0) {
-                  roots.push({ root: safeString(rel.rel?.pos) || 'Root', words: rootWords });
-              }
+              if (rootWords.length > 0) roots.push({ root: safeString(rel.rel?.pos) || 'Root', words: rootWords });
           });
       }
 
-      // 5. Synonyms (syno)
       const synonyms: SynonymItem[] = [];
       if (data.syno?.synos && Array.isArray(data.syno.synos)) {
           data.syno.synos.forEach((group: any) => {
               const meaning = safeString(group.syno?.tran);
-              
               if (group.syno?.ws && Array.isArray(group.syno.ws)) {
                   group.syno.ws.forEach((wItem: any) => {
                        const text = safeString(wItem.w);
-                       if (text) {
-                           synonyms.push({ text, trans: meaning });
-                       }
+                       if (text) synonyms.push({ text, trans: meaning });
                   });
               }
           });
       }
 
-      // 6. Pictures (pic_dict)
       const images: string[] = [];
       if (data.pic_dict?.pic) {
           data.pic_dict.pic.forEach((p: any) => {
@@ -164,7 +132,6 @@ export default defineBackground(() => {
           });
       }
 
-      // 7. Video (word_video)
       let video = undefined;
       if (data.word_video?.word_videos && Array.isArray(data.word_video.word_videos)) {
           const v = data.word_video.word_videos[0]?.video;
@@ -172,13 +139,10 @@ export default defineBackground(() => {
               const url = safeString(v.url || v.video_url); 
               const cover = safeString(v.cover);
               const title = safeString(v.title);
-              if (url) {
-                  video = { title: title || '视频讲解', url, cover };
-              }
+              if (url) video = { title: title || '视频讲解', url, cover };
           }
       }
 
-      // Common data
       const globalTags = normalizeTags(data.ec?.exam_type || []); 
       let star = 0;
       if (data.collins?.collins_entries?.[0]?.star) {
@@ -186,77 +150,39 @@ export default defineBackground(() => {
           if (!isNaN(s)) star = s;
       }
 
-      // 8. Explicit Parsing for Alternate Views
       const expandEcMeanings: DictionaryMeaningCard[] = [];
       if (data.expand_ec?.word) {
-          // Typically an array, iterate
           const words = Array.isArray(data.expand_ec.word) ? data.expand_ec.word : [data.expand_ec.word];
           words.forEach((w: any) => {
               const pos = safeString(w.pos);
-              
               if (w.transList && Array.isArray(w.transList)) {
                   w.transList.forEach((tr: any) => {
-                      // Logic: expand_ec.word[0].transList[0].trans
                       const defCn = safeString(tr.trans);
-                      
-                      // Logic: expand_ec.word[0].transList[0].content.sents[0].sentOrig
                       let example = '';
                       let exampleTrans = '';
-
                       if (tr.content && tr.content.sents && Array.isArray(tr.content.sents) && tr.content.sents.length > 0) {
                           const sentObj = tr.content.sents[0];
                           example = safeString(sentObj.sentOrig);
                           exampleTrans = safeString(sentObj.sentTrans);
                       }
-                      
-                      // Logic: English meaning empty
-                      const defEn = '';
-
-                      if (defCn) {
-                          expandEcMeanings.push({
-                              partOfSpeech: pos,
-                              defCn,
-                              defEn,
-                              inflections: [],
-                              tags: globalTags,
-                              importance: 0,
-                              cocaRank: 0,
-                              example,
-                              exampleTrans
-                          });
-                      }
+                      if (defCn) expandEcMeanings.push({ partOfSpeech: pos, defCn, defEn: '', inflections: [], tags: globalTags, importance: 0, cocaRank: 0, example, exampleTrans });
                   });
               }
           });
       }
 
       const ecMeanings: DictionaryMeaningCard[] = [];
-      // Logic: ec.word[0].trs -> loop -> tr[0].l.i[0]
       if (data.ec?.word) {
            const ecWords = Array.isArray(data.ec.word) ? data.ec.word : [data.ec.word];
            ecWords.forEach((w: any) => {
                if (w.trs && Array.isArray(w.trs)) {
                    w.trs.forEach((trItem: any) => {
-                       // Try various structures Youdao uses for TR
                        if (trItem.tr && Array.isArray(trItem.tr)) {
                            const lObj = trItem.tr[0]?.l;
                            if (lObj && lObj.i) {
-                               // i can be string or array
                                const raw = Array.isArray(lObj.i) ? lObj.i[0] : lObj.i;
                                const defCn = safeString(raw);
-                               if (defCn) {
-                                   ecMeanings.push({
-                                       partOfSpeech: '', // Often embedded in text like "n. 书"
-                                       defCn,
-                                       defEn: '',
-                                       inflections: [],
-                                       tags: globalTags,
-                                       importance: 0,
-                                       cocaRank: 0,
-                                       example: '',
-                                       exampleTrans: ''
-                                   });
-                               }
+                               if (defCn) ecMeanings.push({ partOfSpeech: '', defCn, defEn: '', inflections: [], tags: globalTags, importance: 0, cocaRank: 0, example: '', exampleTrans: '' });
                            }
                        }
                    });
@@ -264,87 +190,41 @@ export default defineBackground(() => {
            });
       }
 
-      // 9. Primary Meanings Logic (Default Strategy: Collins > ExpandEC > EC)
       const meanings: DictionaryMeaningCard[] = [];
-      let source: 'collins' | 'expand_ec' | 'ec' = 'ec'; // default fallback
+      let source: 'collins' | 'expand_ec' | 'ec' = 'ec';
 
-      // Try Collins First
       if (data.collins_primary?.gramcat && Array.isArray(data.collins_primary.gramcat) && data.collins_primary.gramcat.length > 0) {
           data.collins_primary.gramcat.forEach((cat: any) => {
                const pos = safeString(cat.partofspeech);
                const forms = normalizeForms(cat.forms || []); 
-               
                if (cat.senses && Array.isArray(cat.senses)) {
                     cat.senses.forEach((sense: any) => {
                         let defCn = safeString(sense.word); 
-                        if (!defCn || /^[a-zA-Z\s-]+$/.test(defCn)) {
-                            defCn = safeString(sense.chn_tran);
-                        }
+                        if (!defCn || /^[a-zA-Z\s-]+$/.test(defCn)) defCn = safeString(sense.chn_tran);
                         const defEn = safeString(sense.definition);
                         const exObj = sense.examples?.[0];
                         let example = '';
                         let exampleTrans = '';
-
                         if (exObj) {
                             example = safeString(exObj.example) || safeString(exObj.ex);
-                            exampleTrans = safeString(exObj.sense?.word);
-                            if (!exampleTrans) {
-                                exampleTrans = safeString(exObj.tran);
-                            }
+                            exampleTrans = safeString(exObj.sense?.word) || safeString(exObj.tran);
                         }
-
-                        if (defCn || defEn) {
-                            meanings.push({
-                                partOfSpeech: pos,
-                                defCn,
-                                defEn,
-                                inflections: forms.length > 0 ? forms : inflections,
-                                tags: globalTags,
-                                importance: star,
-                                cocaRank: 0, 
-                                example,
-                                exampleTrans
-                            });
-                        }
+                        if (defCn || defEn) meanings.push({ partOfSpeech: pos, defCn, defEn, inflections: forms.length > 0 ? forms : inflections, tags: globalTags, importance: star, cocaRank: 0, example, exampleTrans });
                     });
                }
           });
           if (meanings.length > 0) source = 'collins';
       }
 
-      // Fallback to ExpandEC if no Collins
-      if (meanings.length === 0 && expandEcMeanings.length > 0) {
-          meanings.push(...expandEcMeanings);
-          source = 'expand_ec';
-      }
-      
-      // Fallback to EC if no ExpandEC
-      if (meanings.length === 0 && ecMeanings.length > 0) {
-          meanings.push(...ecMeanings);
-          source = 'ec';
-      }
+      if (meanings.length === 0 && expandEcMeanings.length > 0) { meanings.push(...expandEcMeanings); source = 'expand_ec'; }
+      if (meanings.length === 0 && ecMeanings.length > 0) { meanings.push(...ecMeanings); source = 'ec'; }
 
-      return {
-          text: safeString(data.simple?.word?.[0]?.['return-phrase'] || data.input),
-          phoneticUs,
-          phoneticUk,
-          inflections,
-          phrases,
-          roots,
-          synonyms,
-          images,
-          video,
-          meanings,
-          expandEcMeanings,
-          ecMeanings,
-          source
-      };
+      return { text: safeString(data.simple?.word?.[0]?.['return-phrase'] || data.input), phoneticUs, phoneticUk, inflections, phrases, roots, synonyms, images, video, meanings, expandEcMeanings, ecMeanings, source };
   };
 
   const fetchAndParse = async (word: string): Promise<RichDictionaryResult | null> => {
       const dictionaries = await dictionariesStorage.getValue();
       const youdao = dictionaries.find(d => d.id === 'youdao' && d.isEnabled) || dictionaries.find(d => d.id === 'youdao');
-
       if (youdao) {
           try {
               const res = await fetch(`https://dict.youdao.com/jsonapi?q=${encodeURIComponent(word)}`);
@@ -352,9 +232,7 @@ export default defineBackground(() => {
                   const data = await res.json();
                   return parseYoudaoDeep(data);
               }
-          } catch (e) {
-              console.warn(`Dict Youdao error`, e);
-          }
+          } catch (e) { console.warn(`Dict Youdao error`, e); }
       }
       return null;
   };
@@ -363,12 +241,17 @@ export default defineBackground(() => {
     if (message.action === 'TRANSLATE_TEXT') {
       (async () => {
         try {
+          let result;
           if (message.engine.id === 'tencent') {
-             const result = await callTencentTranslation(message.engine, message.text, message.target);
-             sendResponse({ success: true, data: result });
+             result = await callTencentTranslation(message.engine, message.text, message.target);
+          } else if (message.engine.id === 'niutrans') {
+             result = await callNiuTransTranslation(message.engine, message.text, message.target);
+          } else if (message.engine.id === 'deepl') {
+             result = await callDeepLTranslation(message.engine, message.text, message.target);
           } else {
-             sendResponse({ success: true, data: { Response: { TargetText: `Simulated: ${message.text}` } } });
+             result = { Response: { TargetText: `Simulated: ${message.text}` } };
           }
+          sendResponse({ success: true, data: result });
         } catch (error: any) {
           sendResponse({ success: false, error: error.message || String(error) });
         }
@@ -380,13 +263,9 @@ export default defineBackground(() => {
       (async () => {
         try {
           const result = await fetchAndParse(message.text);
-          if (result) {
-              sendResponse({ success: true, data: result });
-          } else {
-              sendResponse({ success: false, error: "No data found" });
-          }
+          if (result) sendResponse({ success: true, data: result });
+          else sendResponse({ success: false, error: "未找到单词数据" });
         } catch (error: any) {
-          console.error('Lookup Error:', error);
           sendResponse({ success: false, error: error.message || String(error) });
         }
       })();
@@ -399,24 +278,16 @@ export default defineBackground(() => {
             const response = await fetch(`https://dict.youdao.com/suggest?num=5&ver=3.0&doctype=json&cache=false&le=en&q=${encodeURIComponent(message.text)}`);
             if (response.ok) {
                 const data = await response.json();
-                const mappedEntries = data.data?.entries?.map((item: any) => ({
-                    entry: item.entry,
-                    explanation: item.explain
-                })) || [];
-                
+                const mappedEntries = data.data?.entries?.map((item: any) => ({ entry: item.entry, explanation: item.explain })) || [];
                 sendResponse({ success: true, data: mappedEntries });
-            } else {
-                sendResponse({ success: false, data: [] });
-            }
+            } else sendResponse({ success: false, data: [] });
           } catch (error: any) {
-            console.error('Suggest Error:', error);
             sendResponse({ success: false, error: error.message || String(error) });
           }
       })();
       return true;
     }
 
-    // New handler to open options page securely
     if (message.action === 'OPEN_OPTIONS_PAGE') {
         const url = (browser.runtime as any).getURL(message.path);
         browser.tabs.create({ url });

@@ -1,4 +1,3 @@
-
 import { StyleConfig, WordCategory, Scenario, TranslationEngine, WordInteractionConfig, PageWidgetConfig, AnkiConfig, OriginalTextConfig, MergeStrategyConfig, AutoTranslateConfig, DictionaryEngine } from './types';
 
 export const DEFAULT_STYLE: StyleConfig = {
@@ -55,20 +54,29 @@ export const INITIAL_ENGINES: TranslationEngine[] = [
     id: 'tencent', 
     name: '腾讯翻译君 (Tencent)', 
     type: 'standard', 
-    isEnabled: true, // Default Enabled
+    isEnabled: true,
     appId: '', // SecretId
     secretKey: '', 
     endpoint: 'tmt.tencentcloudapi.com',
     region: 'ap-shanghai',
     projectId: 0
   },
-  { id: 'google', name: 'Google 翻译', type: 'standard', isEnabled: false, endpoint: 'https://translation.googleapis.com/language/translate/v2' },
-  { id: 'gemini', name: 'Google Gemini', type: 'ai', isEnabled: false, apiKey: '', model: 'gemini-2.5-flash' },
-  { id: 'deepl', name: 'DeepL API', type: 'standard', isEnabled: false, apiKey: '', endpoint: 'https://api-free.deepl.com/v2/translate' },
-  { id: 'volcengine', name: '字节火山引擎', type: 'standard', isEnabled: false, apiKey: '', secretKey: '' },
-  { id: 'baidu', name: '百度翻译', type: 'standard', isEnabled: false, appId: '', secretKey: '' },
-  { id: 'iflytek', name: '科大讯飞', type: 'standard', isEnabled: false, appId: '', apiKey: '', secretKey: '' },
-  { id: 'custom-mock', name: '模拟翻译 (无需 Key)', type: 'standard', isEnabled: false },
+  { 
+    id: 'deepl', 
+    name: 'DeepL API', 
+    type: 'standard', 
+    isEnabled: false, 
+    apiKey: '', 
+    endpoint: 'https://api-free.deepl.com/v2/translate' 
+  },
+  { 
+    id: 'niutrans', 
+    name: '小牛翻译 (NiuTrans)', 
+    type: 'standard', 
+    isEnabled: false, 
+    apiKey: '', 
+    endpoint: 'https://api.niutrans.com/NiuTransServer/translation' 
+  }
 ];
 
 export const INITIAL_DICTIONARIES: DictionaryEngine[] = [
@@ -78,7 +86,7 @@ export const INITIAL_DICTIONARIES: DictionaryEngine[] = [
     endpoint: 'https://dict.youdao.com/jsonapi', 
     link: 'https://dict.youdao.com/',
     isEnabled: true, 
-    priority: 1, // Youdao is #1
+    priority: 1,
     description: '网易出品，数据最全，包含音频、考试等级、柯林斯星级等。'
   },
   { 
@@ -87,26 +95,8 @@ export const INITIAL_DICTIONARIES: DictionaryEngine[] = [
     endpoint: 'https://dict-co.iciba.com/api/dictionary.php',
     link: 'http://www.iciba.com/',
     isEnabled: true, 
-    priority: 2, // ICBA is #2
+    priority: 2,
     description: '经典词典，包含英/美音标及双语例句。'
-  },
-  { 
-    id: 'free-dict', 
-    name: 'Free Dictionary API', 
-    endpoint: 'https://api.dictionaryapi.dev/api/v2/entries/en/', 
-    link: 'https://dictionaryapi.dev/',
-    isEnabled: true, 
-    priority: 3,
-    description: 'Google 官方推荐，英文释义为主。'
-  },
-  { 
-    id: 'wiktionary', 
-    name: 'Wiktionary API', 
-    endpoint: 'https://en.wiktionary.org/api/rest_v1/page/definition/', 
-    link: 'https://en.wiktionary.org/',
-    isEnabled: true, 
-    priority: 4,
-    description: '维基词典，纯英文释义，国内访问不稳定。'
   }
 ];
 
@@ -123,12 +113,11 @@ export const DEFAULT_WORD_INTERACTION: WordInteractionConfig = {
   autoPronounceCount: 1,
   dismissDelay: 300,
   allowMultipleBubbles: false,
-  onlineDictUrl: '', // Default empty
+  onlineDictUrl: '',
 };
 
 export const DEFAULT_PAGE_WIDGET: PageWidgetConfig = {
   enabled: true,
-  // Set to -1 to indicate uninitialized position, triggering auto-position logic in component
   x: -1, 
   y: -1,
   width: 380,
@@ -137,7 +126,7 @@ export const DEFAULT_PAGE_WIDGET: PageWidgetConfig = {
   backgroundColor: '#ffffff',
   fontSize: '14px',
   
-  modalPosition: { x: 0, y: 0 }, // Will also auto-center
+  modalPosition: { x: 0, y: 0 },
   modalSize: { width: 500, height: 600 },
 
   showPhonetic: true,
@@ -148,7 +137,6 @@ export const DEFAULT_PAGE_WIDGET: PageWidgetConfig = {
   showContextTranslation: true,
   showInflections: true,
 
-  // New Fields for Rich Metadata in Widget
   showPartOfSpeech: true,
   showTags: true,
   showImportance: true,
@@ -170,8 +158,8 @@ export const DEFAULT_AUTO_TRANSLATE: AutoTranslateConfig = {
   enabled: true,
   bilingualMode: false,
   translateWholePage: false,
-  matchInflections: true, // Default Enabled
-  aggressiveMode: false, // Default Disabled
+  matchInflections: true,
+  aggressiveMode: false,
   blacklist: ['google.com', 'baidu.com'], 
   whitelist: ['nytimes.com', 'medium.com'],
   ttsSpeed: 1.0,
@@ -196,7 +184,6 @@ const DEFAULT_ANKI_FRONT = `
   </div>
 
   <div class="context-section">
-    <!-- 显示单词出现的段落，所在句子加黑加粗，所在单词加粗、倾斜、颜色红色 -->
     <div class="paragraph">
        {{paragraph_en_prefix}}<span class="sentence-highlight">{{sentence_en_prefix}}<span class="target-word">{{word}}</span>{{sentence_en_suffix}}</span>{{paragraph_en_suffix}}
     </div>
@@ -210,12 +197,10 @@ const DEFAULT_ANKI_FRONT = `
     {{image}}
   </div>
 
-  <!-- 刚进入卡片默认读三遍单词 (可选，这里依赖 audio_us 元素) -->
   <script>
     setTimeout(function() {
       var btn = document.querySelector('.phonetics .audio-btn audio');
       if(btn) { 
-        // Try to play automatically for reviewing
         btn.play().catch(function(){}); 
       }
     }, 500);
@@ -332,7 +317,7 @@ export const DEFAULT_ANKI_CONFIG: AnkiConfig = {
   url: 'http://127.0.0.1:8765',
   deckNameWant: 'ContextLingo-Want',
   deckNameLearning: 'ContextLingo-Learning',
-  modelName: 'Basic', // Default Note Type
+  modelName: 'Basic', 
   syncInterval: 90,
   autoSync: false,
   syncScope: { wantToLearn: true, learning: true },
