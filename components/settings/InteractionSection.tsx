@@ -111,13 +111,20 @@ export const InteractionSection: React.FC<InteractionSectionProps> = ({ config, 
 
   // Handle Auto Pronounce in Preview (Simulate real logic)
   useEffect(() => {
+      let isMounted = true;
       if (isPreviewVisible && config.autoPronounce && config.autoPronounceCount > 0) {
           (async () => {
               for (let i = 0; i < config.autoPronounceCount; i++) {
+                  if (!isMounted || !isPreviewVisible) break;
+                  // 核心：使用 playWordAudio 替代简单的 TTS
                   await playWordAudio("ephemeral", config.autoPronounceAccent);
+                  if (i < config.autoPronounceCount - 1 && isMounted && isPreviewVisible) {
+                    await new Promise(r => setTimeout(r, 300));
+                  }
               }
           })();
       }
+      return () => { isMounted = false; };
   }, [isPreviewVisible, config.autoPronounce, config.autoPronounceCount, config.autoPronounceAccent]);
 
   // --- Trigger Simulation Logic ---

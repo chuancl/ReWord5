@@ -40,6 +40,7 @@ export const WordBubble: React.FC<WordBubbleProps> = ({
   }, [entry]);
 
   useEffect(() => {
+      // 当单词 ID 改变时，重置自动播放状态
       hasAutoPlayedRef.current = false;
   }, [entry?.id]);
 
@@ -51,16 +52,28 @@ export const WordBubble: React.FC<WordBubbleProps> = ({
     return () => { stopAudio(); };
   }, [isVisible]);
 
+  // 核心：自动朗读逻辑，遵循 有道 -> TTS 兜底。
   useEffect(() => {
-      if (isVisible && entry && config.autoPronounceCount > 0 && !hasAutoPlayedRef.current) {
+      let isMounted = true;
+      if (isVisible && entry && config.autoPronounce && config.autoPronounceCount > 0 && !hasAutoPlayedRef.current) {
+          hasAutoPlayedRef.current = true; // 标记已开始自动播放，防止重复触发
           (async () => {
-             for(let i=0; i<config.autoPronounceCount; i++) {
+             for(let i = 0; i < config.autoPronounceCount; i++) {
+                 // 每次循环前检查气泡是否还在或组件是否已卸载
+                 if (!isMounted || !isVisible) break;
+                 
+                 // 调用 playWordAudio 实现智能发音逻辑
                  await playWordAudio(entry.text, config.autoPronounceAccent, ttsSpeed);
+                 
+                 // 如果需要播放多次，在两次之间留出 300ms 间隔，提高听感
+                 if (i < config.autoPronounceCount - 1 && isMounted && isVisible) {
+                    await new Promise(r => setTimeout(r, 300));
+                 }
              }
           })();
-          hasAutoPlayedRef.current = true;
       }
-  }, [isVisible, entry, config.autoPronounceCount, config.autoPronounceAccent, ttsSpeed]);
+      return () => { isMounted = false; };
+  }, [isVisible, entry?.id, config.autoPronounce, config.autoPronounceCount, config.autoPronounceAccent, ttsSpeed]);
 
   const handleAdd = (e: React.MouseEvent) => {
       e.stopPropagation();
@@ -73,6 +86,7 @@ export const WordBubble: React.FC<WordBubbleProps> = ({
   const playAudio = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!entry) return;
+    // 点击喇叭图标同样执行智能朗读逻辑
     playWordAudio(entry.text, config.autoPronounceAccent, ttsSpeed);
   };
 
@@ -88,7 +102,7 @@ export const WordBubble: React.FC<WordBubbleProps> = ({
       browser.runtime.sendMessage({ action: 'OPEN_OPTIONS_PAGE', path });
   };
 
-  // 跳转到词汇管理并搜索
+  // 跳转到词汇管理并搜索（更新后的逻辑）
   const openInManager = (e?: React.MouseEvent) => {
       e?.stopPropagation();
       if (!entry) return;
