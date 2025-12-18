@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { WordInteractionConfig, InteractionTrigger, ModifierKey, MouseAction, BubblePosition } from '../../types';
 import { Volume2, Info, ArrowUp, ArrowDown, ArrowLeft, ArrowRight, Plus, ExternalLink, BookOpen } from 'lucide-react';
-import { playTextToSpeech } from '../../utils/audio';
+import { playWordAudio, playTextToSpeech } from '../../utils/audio';
 import { browser } from 'wxt/browser';
 
 const Tooltip: React.FC<{ text: string; children: React.ReactNode }> = ({ text, children }) => {
@@ -109,10 +109,14 @@ export const InteractionSection: React.FC<InteractionSectionProps> = ({ config, 
     };
   }, []);
 
-  // Handle Auto Pronounce in Preview
+  // Handle Auto Pronounce in Preview (Simulate real logic)
   useEffect(() => {
       if (isPreviewVisible && config.autoPronounce && config.autoPronounceCount > 0) {
-          playTextToSpeech("ephemeral", config.autoPronounceAccent, 1.0, config.autoPronounceCount);
+          (async () => {
+              for (let i = 0; i < config.autoPronounceCount; i++) {
+                  await playWordAudio("ephemeral", config.autoPronounceAccent);
+              }
+          })();
       }
   }, [isPreviewVisible, config.autoPronounce, config.autoPronounceCount, config.autoPronounceAccent]);
 
@@ -185,7 +189,6 @@ export const InteractionSection: React.FC<InteractionSectionProps> = ({ config, 
   // --- Actions ---
   const openDetailPreview = (e: React.MouseEvent) => {
       e.stopPropagation();
-      // 使用 wxt 提供的 getURL 动态生成路径，避免硬编码 ID
       const url = browser.runtime.getURL('/options.html?view=word-detail&word=ephemeral');
       window.open(url, '_blank');
   };
@@ -396,7 +399,7 @@ export const InteractionSection: React.FC<InteractionSectionProps> = ({ config, 
                                 <div className="flex gap-2">
                                     <button 
                                         className="text-slate-400 hover:text-blue-600 p-1.5 rounded-full transition-colors bg-transparent"
-                                        onClick={() => playTextToSpeech("ephemeral", config.autoPronounceAccent, 1.0, 1)}
+                                        onClick={() => playWordAudio("ephemeral", config.autoPronounceAccent)}
                                         title="点击播放"
                                     >
                                         <Volume2 className="w-4 h-4"/>
@@ -422,7 +425,7 @@ export const InteractionSection: React.FC<InteractionSectionProps> = ({ config, 
                             )}
 
                             {config.showDictExample && (
-                                <div className="text-xs text-slate-600 italic border-l-2 border-blue-400 pl-3 py-0.5 leading-relaxed cursor-pointer hover:text-blue-600" onClick={() => playTextToSpeech("Her success was ephemeral", config.autoPronounceAccent)}>
+                                <div className="text-xs text-slate-600 italic border-l-2 border-blue-400 pl-3 py-0.5 leading-relaxed cursor-pointer hover:text-blue-600" onClick={() => playWordAudio("Her success was ephemeral", config.autoPronounceAccent)}>
                                     Her success was ephemeral.
                                 </div>
                             )}
