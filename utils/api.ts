@@ -4,10 +4,11 @@ import { GoogleGenAI } from "@google/genai";
 
 /**
  * Gemini 3 翻译实现 (最高优先级推荐)
+ * 严格遵守 process.env.API_KEY 获取规范
  */
 const callGeminiTranslation = async (text: string, target: string = 'en'): Promise<string> => {
     try {
-        // 使用 process.env.API_KEY 初始化，这由运行环境自动注入
+        // 每次调用创建新实例，确保获取最新的 API Key
         const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         const response = await ai.models.generateContent({
             model: 'gemini-3-flash-preview',
@@ -29,7 +30,11 @@ const callGeminiTranslation = async (text: string, target: string = 'en'): Promi
         return response.text?.trim() || "";
     } catch (e: any) {
         console.error("[Gemini API Error]", e);
-        throw new Error("Gemini AI 调用失败，请检查网络或环境变量配置。");
+        // 如果是因为 API KEY 导致的问题，抛出可辨识的错误
+        if (e.message?.includes("API key not valid")) {
+            throw new Error("Gemini API Key 无效，请在环境配置中检查。");
+        }
+        throw new Error("Gemini AI 翻译请求失败。");
     }
 };
 
@@ -54,7 +59,7 @@ const callGoogleWebSimulation = async (text: string, target: string = 'en'): Pro
         return resJson[0].map((item: any) => item[0]).join("");
     } catch (e: any) {
         console.error("[Google Simulation Error]", e);
-        throw new Error("Google 翻译连接超时。");
+        throw new Error("Google 翻译连接超时或被封锁。");
     }
 };
 
