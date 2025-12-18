@@ -51,11 +51,18 @@ export const INITIAL_SCENARIOS: Scenario[] = [
 
 export const INITIAL_ENGINES: TranslationEngine[] = [
   { 
+    id: 'google', 
+    name: 'Google 翻译 (免 Key)', 
+    type: 'standard', 
+    isEnabled: true,
+    isWebSimulation: true
+  },
+  { 
     id: 'tencent', 
     name: '腾讯翻译君 (Tencent)', 
     type: 'standard', 
-    isEnabled: true,
-    appId: '', // SecretId
+    isEnabled: false,
+    appId: '', 
     secretKey: '', 
     endpoint: 'tmt.tencentcloudapi.com',
     region: 'ap-shanghai',
@@ -63,11 +70,11 @@ export const INITIAL_ENGINES: TranslationEngine[] = [
   },
   { 
     id: 'deepl', 
-    name: 'DeepL API', 
+    name: 'DeepL 翻译', 
     type: 'standard', 
     isEnabled: false, 
     apiKey: '', 
-    endpoint: 'https://api-free.deepl.com/v2/translate' 
+    isWebSimulation: true 
   },
   { 
     id: 'niutrans', 
