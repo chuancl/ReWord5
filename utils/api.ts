@@ -2,6 +2,76 @@ import { TranslationEngine } from "../types";
 import { getHash, getHmac, toHex } from './crypto';
 
 /**
+ * 模拟 DeepL 网页版 JSON-RPC 请求
+ * 用于绕过官方 API 限制
+ */
+const callDeepLWebSimulation = async (text: string, target: string = 'en'): Promise<string> => {
+    const targetLang = target.toUpperCase() === 'ZH' ? 'ZH' : 'EN';
+    const id = Math.floor(Math.random() * 1000000) + 1000000;
+    
+    // DeepL 网页版特有的混淆计算
+    const getTimeStamp = (iCount: number) => {
+        const ts = Date.now();
+        if (iCount !== 0) {
+            return ts - (ts % (iCount + 1)) + (iCount + 1);
+        }
+        return ts;
+    };
+
+    const iCount = (text.split('i').length - 1) + (text.split('I').length - 1);
+    const timestamp = getTimeStamp(iCount);
+
+    const payload = {
+        jsonrpc: "2.0",
+        method: "LMT_handle_jobs",
+        params: {
+            jobs: [{
+                kind: "default",
+                sentences: [{ text, id: 0, prefix: "" }],
+                raw_en_context_before: [],
+                raw_en_context_after: []
+            }],
+            lang: {
+                target_lang: targetLang,
+                source_lang_user_selected: "auto"
+            },
+            priority: 1,
+            commonJobParams: {
+                browserType: 1,
+                formality: null
+            },
+            timestamp
+        },
+        id
+    };
+
+    const response = await fetch("https://www2.deepl.com/jsonrpc?method=LMT_handle_jobs", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "Accept": "*/*",
+            "Accept-Language": "zh-CN,zh;q=0.9",
+            "Cache-Control": "no-cache",
+            "Pragma": "no-cache"
+        },
+        body: JSON.stringify(payload)
+    });
+
+    if (!response.ok) {
+        throw new Error(`DeepL Web 接口响应异常: ${response.status}`);
+    }
+
+    const resJson = await response.json();
+    if (resJson.error) {
+        throw new Error(`DeepL Web 错误: ${resJson.error.message || '未知'}`);
+    }
+
+    // 解析结果：DeepL 网页版返回的是嵌套的 jobs 结构
+    const translatedText = resJson.result?.translations?.[0]?.beams?.[0]?.sentences?.[0]?.text;
+    return translatedText || "";
+};
+
+/**
  * 调用腾讯翻译君 (TMT)
  */
 export const callTencentTranslation = async (engine: TranslationEngine, sourceText: string = 'Hello', target: string = 'en'): Promise<any> => {
@@ -87,7 +157,6 @@ export const callTencentTranslation = async (engine: TranslationEngine, sourceTe
 
 /**
  * 调用小牛翻译 (NiuTrans)
- * 文档: https://niutrans.com/documents/contents/transapi_text_v2#accessMode
  */
 export const callNiuTransTranslation = async (engine: TranslationEngine, sourceText: string, target: string = 'en'): Promise<any> => {
     if (!engine.apiKey) throw new Error("缺少小牛翻译 API Key");
@@ -111,7 +180,6 @@ export const callNiuTransTranslation = async (engine: TranslationEngine, sourceT
         throw new Error(`小牛翻译错误: ${resJson.error_msg} (${resJson.error_code})`);
     }
 
-    // 格式化为与通用返回一致的结构
     return {
         Response: {
             TargetText: resJson.tgt_text
@@ -120,9 +188,20 @@ export const callNiuTransTranslation = async (engine: TranslationEngine, sourceT
 };
 
 /**
- * 调用 DeepL 翻译
+ * 调用 DeepL 翻译 (支持官方 API 和网页模拟)
  */
 export const callDeepLTranslation = async (engine: TranslationEngine, sourceText: string, target: string = 'en'): Promise<any> => {
+    // 如果配置为网页模拟模式或未填写 API Key，则使用网页版模拟
+    if (engine.isWebSimulation || (!engine.apiKey && !engine.isCustom)) {
+        const text = await callDeepLWebSimulation(sourceText, target);
+        return {
+            Response: {
+                TargetText: text
+            }
+        };
+    }
+
+    // 否则执行官方 API 逻辑
     if (!engine.apiKey) throw new Error("缺少 DeepL API Key");
 
     const isFree = engine.apiKey.endsWith(':fx');

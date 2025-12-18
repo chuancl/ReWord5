@@ -1,4 +1,3 @@
-
 import { defineConfig } from 'wxt';
 
 // See https://wxt.dev/api/config.html
@@ -12,6 +11,8 @@ export default defineConfig({
       "https://*.tencentcloudapi.com/*",
       "https://translation.googleapis.com/*",
       "https://api-free.deepl.com/*",
+      "https://api.deepl.com/*",
+      "https://www2.deepl.com/*",
       "https://dict.youdao.com/*"
     ],
     action: {

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { TranslationEngine, EngineType, DictionaryEngine } from '../../types';
-import { Plus, GripVertical, RefreshCw, CheckCircle, WifiOff, Trash2, Globe, BrainCircuit, X, Book, ExternalLink } from 'lucide-react';
+import { Plus, GripVertical, RefreshCw, CheckCircle, WifiOff, Trash2, Globe, BrainCircuit, X, Book, ExternalLink, Zap } from 'lucide-react';
 import { callTencentTranslation, callNiuTransTranslation, callDeepLTranslation } from '../../utils/api';
 import { dictionariesStorage } from '../../utils/storage';
 
@@ -145,8 +145,39 @@ export const EnginesSection: React.FC<EnginesSectionProps> = ({ engines, setEngi
                              </div>
                           </>
                        )}
-                       {/* 小牛翻译和 DeepL 仅需 API Key */}
-                       {(engine.id === 'niutrans' || engine.id === 'deepl') && (
+                       {/* DeepL 专用字段 */}
+                       {engine.id === 'deepl' && (
+                         <div className="col-span-2 space-y-3">
+                            <div className="flex bg-slate-100 p-1 rounded-lg border border-slate-200">
+                                <button 
+                                    onClick={() => setEngines(prev => prev.map(en => en.id === 'deepl' ? {...en, isWebSimulation: true} : en))}
+                                    className={`flex-1 flex items-center justify-center py-1.5 text-xs rounded-md transition ${engine.isWebSimulation ? 'bg-white text-blue-600 shadow-sm font-bold' : 'text-slate-500 hover:text-slate-700'}`}
+                                >
+                                    <Zap className="w-3 h-3 mr-1.5" /> 网页模拟 (免 Key)
+                                </button>
+                                <button 
+                                    onClick={() => setEngines(prev => prev.map(en => en.id === 'deepl' ? {...en, isWebSimulation: false} : en))}
+                                    className={`flex-1 flex items-center justify-center py-1.5 text-xs rounded-md transition ${!engine.isWebSimulation ? 'bg-white text-blue-600 shadow-sm font-bold' : 'text-slate-500 hover:text-slate-700'}`}
+                                >
+                                    官方 API 模式
+                                </button>
+                            </div>
+                            {!engine.isWebSimulation && (
+                                <div className="animate-in fade-in zoom-in-95">
+                                    <label className="text-[10px] text-slate-500 mb-1 block">API Key</label>
+                                    <input type="password" placeholder="请输入 DeepL API Key" className="px-3 py-2 border border-slate-300 rounded w-full font-mono text-xs" value={engine.apiKey || ''} onChange={e => setEngines(prev => prev.map(en => en.id === engine.id ? {...en, apiKey: e.target.value} : en))} />
+                                </div>
+                            )}
+                            {engine.isWebSimulation && (
+                                <div className="text-[11px] text-slate-400 bg-blue-50/50 p-2 rounded border border-blue-100 flex items-start gap-2">
+                                    <div className="mt-0.5"><Zap className="w-3 h-3 text-blue-400" /></div>
+                                    <p>网页模拟模式：通过模拟浏览器请求直接调用 DeepL 服务，无需 API Key。适合在中国大陆无法申请官方 API 的用户。请注意高频率调用可能触发 IP 限制。</p>
+                                </div>
+                            )}
+                         </div>
+                       )}
+                       {/* 小牛翻译 */}
+                       {engine.id === 'niutrans' && (
                          <div className="col-span-2">
                              <label className="text-[10px] text-slate-500 mb-1 block">API Key</label>
                              <input type="password" placeholder="请输入 API Key" className="px-3 py-2 border border-slate-300 rounded w-full font-mono text-xs" value={engine.apiKey || ''} onChange={e => setEngines(prev => prev.map(en => en.id === engine.id ? {...en, apiKey: e.target.value} : en))} />

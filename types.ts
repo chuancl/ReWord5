@@ -1,4 +1,3 @@
-
 export enum WordCategory {
   KnownWord = '已掌握单词',
   WantToLearnWord = '想学习单词',
@@ -183,6 +182,7 @@ export interface TranslationEngine {
   testResult?: 'success' | 'fail' | null;
   testErrorMessage?: string; // Specific error message from API
   isCustom?: boolean;
+  isWebSimulation?: boolean; // 新增：是否使用网页版模拟
 }
 
 export interface DictionaryEngine {
