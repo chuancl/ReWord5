@@ -60,7 +60,6 @@ const ContentOverlay: React.FC<ContentOverlayProps> = ({
   }, []);
 
   useEffect(() => {
-      // 动态更新页面关联词汇
       const scanRelevant = () => {
           const text = document.body.innerText;
           const matched = entries.filter(e => {
@@ -234,6 +233,11 @@ export default defineContentScript({
     let currentEngines = await enginesStorage.getValue();
     let currentInteractionConfig = await interactionConfigStorage.getValue();
 
+    // 监听配置更新，确保逻辑实时同步
+    autoTranslateConfigStorage.watch(v => { if(v) currentAutoTranslate = v; });
+    entriesStorage.watch(v => { if(v) currentEntries = v; });
+    enginesStorage.watch(v => { if(v) currentEngines = v; });
+
     /**
      * 应用替换逻辑
      */
@@ -320,7 +324,12 @@ export default defineContentScript({
         private isProcessing = false;
         add(block: HTMLElement) {
             const text = block.innerText?.trim();
+            // 长度限制和中文字符检测
             if (!text || text.length < 5 || !/[\u4e00-\u9fa5]/.test(text)) return;
+            
+            // 排除含有大量标点的干扰项（如导航条）
+            if ((text.match(/[\/|\\·•]/g) || []).length > 3 && text.length < 20) return;
+
             block.setAttribute('data-context-lingo-scanned', 'pending');
             this.buffer.push({ block, text });
             this.flush();
@@ -358,11 +367,34 @@ export default defineContentScript({
 
     const scheduler = new TranslationScheduler();
     const scan = () => {
-        const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT, {
+        // 定义主体内容的优先容器
+        const mainSelectors = ['main', 'article', '#main', '.main', '#content', '.content', '.article', '.post-content'];
+        const mainContainer = !currentAutoTranslate.translateWholePage 
+            ? document.querySelector(mainSelectors.join(',')) || document.body 
+            : document.body;
+
+        const walker = document.createTreeWalker(mainContainer, NodeFilter.SHOW_ELEMENT, {
             acceptNode: (n: any) => {
-                if (['SCRIPT','STYLE','NOSCRIPT','IFRAME','CANVAS','VIDEO','AUDIO'].includes(n.tagName)) return NodeFilter.FILTER_REJECT;
+                const tagName = n.tagName.toUpperCase();
+                // 1. 基础剔除标签
+                if (['SCRIPT','STYLE','NOSCRIPT','IFRAME','CANVAS','VIDEO','AUDIO','BUTTON','INPUT','TEXTAREA','SELECT'].includes(tagName)) return NodeFilter.FILTER_REJECT;
+                
+                // 2. 内部 UI 剔除
                 if (n.hasAttribute('data-context-lingo-scanned') || n.closest('[data-context-lingo-container]')) return NodeFilter.FILTER_REJECT;
-                return ['P','DIV','LI','ARTICLE','SECTION'].includes(n.tagName) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
+                
+                // 3. 结构性过滤：非全页扫描时剔除干扰容器
+                if (!currentAutoTranslate.translateWholePage) {
+                    if (['NAV', 'HEADER', 'FOOTER', 'ASIDE'].includes(tagName)) return NodeFilter.FILTER_REJECT;
+                    // 额外检测 class 和 id 中包含导航词汇的容器
+                    const identity = (n.id + n.className).toLowerCase();
+                    if (['nav', 'menu', 'sidebar', 'header', 'footer', 'toolbar', 'breadcrumb'].some(word => identity.includes(word))) return NodeFilter.FILTER_REJECT;
+                    // 排除被以上标签包裹的子孙元素
+                    if (n.closest('nav, header, footer, aside')) return NodeFilter.FILTER_REJECT;
+                }
+
+                // 4. 接受文本容器标签
+                const textContainers = ['P','DIV','LI','ARTICLE','SECTION','BLOCKQUOTE','H1','H2','H3','H4','H5','H6'];
+                return textContainers.includes(tagName) ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_SKIP;
             }
         });
         while(walker.nextNode()) scheduler.add(walker.currentNode as HTMLElement);
@@ -389,8 +421,5 @@ export default defineContentScript({
       },
       onRemove: (root) => root?.unmount(),
     }).then(ui => ui.mount());
-
-    entriesStorage.watch(v => { if(v) currentEntries = v; });
-    enginesStorage.watch(v => { if(v) currentEngines = v; });
   },
 });
