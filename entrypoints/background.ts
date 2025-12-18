@@ -1,6 +1,6 @@
 import { defineBackground } from 'wxt/sandbox';
 import { browser } from 'wxt/browser';
-import { callTencentTranslation, callNiuTransTranslation, callDeepLTranslation } from '../utils/api';
+import { callTencentTranslation, callNiuTransTranslation, callDeepLTranslation, translateWithEngine } from '../utils/api';
 import { dictionariesStorage } from '../utils/storage';
 import { RichDictionaryResult, DictionaryMeaningCard, PhraseItem, SynonymItem } from '../types';
 
@@ -241,18 +241,11 @@ export default defineBackground(() => {
     if (message.action === 'TRANSLATE_TEXT') {
       (async () => {
         try {
-          let result;
-          if (message.engine.id === 'tencent') {
-             result = await callTencentTranslation(message.engine, message.text, message.target);
-          } else if (message.engine.id === 'niutrans') {
-             result = await callNiuTransTranslation(message.engine, message.text, message.target);
-          } else if (message.engine.id === 'deepl') {
-             result = await callDeepLTranslation(message.engine, message.text, message.target);
-          } else {
-             result = { Response: { TargetText: `Simulated: ${message.text}` } };
-          }
-          sendResponse({ success: true, data: result });
+          // 使用统一的翻译分发器，它已经包含了 google/baidu/deepl 的网页模拟逻辑
+          const text = await translateWithEngine(message.engine, message.text, message.target);
+          sendResponse({ success: true, data: { Response: { TargetText: text } } });
         } catch (error: any) {
+          console.error("[Background] Translation request failed:", error);
           sendResponse({ success: false, error: error.message || String(error) });
         }
       })();
